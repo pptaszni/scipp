@@ -16,11 +16,12 @@ from plotly.subplots import make_subplots
 from PIL import Image, ImageOps
 from matplotlib import cm
 from matplotlib.colors import Normalize
+import hashlib
 
 
 def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
             name=None, figsize=None, show_variances=False, ndim=0,
-            rasterize="auto", backend=None):
+            rasterize="auto", backend=None, mask_color=None, show_masks=True):
     """
     Plot a 2D slice through a N dimensional dataset. For every dimension above
     2, a slider is created to adjust the position of the slice in that
@@ -28,6 +29,7 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
     """
 
     var = input_data[name]
+    masks = input_data.masks
     if axes is None:
         axes = var.dims
 
@@ -40,7 +42,7 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
     if figsize is None:
         figsize = [config.width, config.height]
 
-    layout = {"height": figsize[1], "width": figsize[0]}
+    layout = {"height": figsize[1], "width": figsize[0], 'hovermode': 'x'}
     if var.variances is not None and show_variances:
         layout["height"] = 0.7 * layout["height"]
         layout["xaxis2"] = {"matches": "x"}
@@ -73,7 +75,7 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
             plot_type = 'contour'
         hoverinfo = "x+y+z"
 
-    data = dict(x=[0.0, 1.0],
+    data = [dict(x=[0.0, 1.0],
                 y=[0.0, 1.0],
                 z=[[0.0]],
                 type=plot_type,
@@ -81,11 +83,34 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
                 colorbar=cbdict,
                 opacity=int(not rasterize),
                 hoverinfo=hoverinfo
-                )
+                )]
+    show_masks = ((len(input_data.masks) > 0) and show_masks)
+    for i, (key, msk) in enumerate(sorted(input_data.masks)):
+    # if show_masks:
+        if mask_color is None:
+            col = "#{}".format(hashlib.sha1(key.encode()).hexdigest()[:6])
+        elif isinstance(mask_color, list):
+            col = mask_color[i]
+        else:
+            col = mask_color
+        print(col)
+        data.append(
+            dict(x=[0.0, 1.0],
+                y=[0.0, 1.0],
+                z=[[None]],
+                type=plot_type,
+                colorscale=[[0, col], [1, col]],
+                colorbar=cbdict,
+                opacity=0.8,
+                hovertext=[key],
+                hoverinfo="text",
+                showscale=False
+                ))
+
 
     sv = Slicer2d(data=data, layout=layout, input_data=var, axes=axes,
                   value_name=title, cb=cbar, show_variances=show_variances,
-                  rasterize=rasterize)
+                  rasterize=rasterize, show_masks=show_masks, masks=masks)
 
     render_plot(static_fig=sv.fig, interactive_fig=sv.vbox, backend=backend,
                 filename=filename)
@@ -96,13 +121,15 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
 class Slicer2d(Slicer):
 
     def __init__(self, data, layout, input_data, axes,
-                 value_name, cb, show_variances, rasterize, surface3d=False):
+                 value_name, cb, show_variances, rasterize, show_masks,
+                 masks, surface3d=False):
 
         super().__init__(input_data, axes, value_name, cb, show_variances,
-                         button_options=['X', 'Y'])
+                         show_masks, button_options=['X', 'Y'])
 
         self.surface3d = surface3d
         self.rasterize = rasterize
+        self.masks = masks
 
         # Initialise Figure and VBox objects
         self.fig = None
@@ -118,12 +145,12 @@ class Slicer2d(Slicer):
             else:
                 self.fig = go.FigureWidget(
                     make_subplots(rows=1, cols=2, horizontal_spacing=0.16))
-            data["colorbar"]["x"] = 0.42
-            data["colorbar"]["thickness"] = 0.02
-            self.fig.add_trace(data, row=1, col=1)
-            data["colorbar"]["title"] = "variances"
-            data["colorbar"]["x"] = 1.0
-            self.fig.add_trace(data, row=1, col=2)
+            data[0]["colorbar"]["x"] = 0.42
+            data[0]["colorbar"]["thickness"] = 0.02
+            self.fig.add_trace(data[0], row=1, col=1)
+            data[0]["colorbar"]["title"] = "variances"
+            data[0]["colorbar"]["x"] = 1.0
+            self.fig.add_trace(data[0], row=1, col=2)
             self.fig.update_layout(**layout)
             if self.rasterize:
                 self.fig.update_xaxes(row=1, col=1, **layout["xaxis"])
@@ -131,7 +158,7 @@ class Slicer2d(Slicer):
                 self.fig.update_yaxes(row=1, col=1, **layout["yaxis"])
                 self.fig.update_yaxes(row=1, col=2, **layout["yaxis"])
         else:
-            self.fig = go.FigureWidget(data=[data], layout=layout)
+            self.fig = go.FigureWidget(data=data, layout=layout)
 
         # Set colorbar limits once to keep them constant for slicer
         # TODO: should there be auto scaling as slider value is changed?
@@ -209,7 +236,7 @@ class Slicer2d(Slicer):
         for key, button in self.buttons.items():
             if self.slider[key].disabled:
                 but_val = button.value.lower()
-                for i in range(1 + self.show_variances):
+                for i in range((1 + self.show_variances) * self.show_masks*(len(self.masks))):
                     if self.rasterize:
                         self.fig.data[i][but_val] = \
                             self.slider_x[key].values[[0, -1]]
@@ -245,6 +272,10 @@ class Slicer2d(Slicer):
     def update_slice(self, change):
         # The dimensions to be sliced have been saved in slider_dims
         vslice = self.input_data
+        # Do we also need to slice the masks?
+        if self.show_masks:
+            mslice = [var for key, var in sorted(self.masks)]
+
         # Slice along dimensions with active sliders
         button_dims = [None, None]
         for key, val in self.slider.items():
@@ -252,6 +283,9 @@ class Slicer2d(Slicer):
                 self.lab[key].value = str(
                     self.slider_x[key].values[val.value])
                 vslice = vslice[val.dim, val.value]
+                if self.show_masks:
+                    for i, (key, var) in enumerate(sorted(self.masks)):
+                        mslice[i] = mslice[i][val.dim, val.value]
             else:
                 button_dims[self.buttons[key].value.lower() == "y"] = val.dim
 
@@ -259,6 +293,9 @@ class Slicer2d(Slicer):
         slice_dims = vslice.dims
         transp = slice_dims == button_dims
         self.update_z2d(vslice.values, transp, self.cb["log"], 0)
+        if self.show_masks:
+            for i, m in enumerate(mslice):
+                self.update_z2d(np.where(m.values, 1, None), transp, False, i + 1)
         if self.show_variances:
             self.update_z2d(vslice.variances, transp, self.cb["log"], 1)
         return

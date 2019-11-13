@@ -13,7 +13,7 @@ import plotly.graph_objs as go
 
 
 def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
-            color=None, filename=None, axes=None):
+            color=None, filename=None, axes=None, show_masks=True):
     """
     Plot a 1D spectrum.
 
@@ -26,9 +26,11 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
     """
 
     data = []
+    ymax = 1.0e-30
     for i, (name, var) in enumerate(sorted(input_data)):
 
         xlab, ylab, x, y = get_1d_axes(var, axes, name)
+        ymax = max(ymax, np.amax(y))
 
         nx = x.shape[0]
         ny = y.shape[0]
@@ -76,6 +78,14 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
         layout["xaxis"]["type"] = "log"
     if logy or logxy:
         layout["yaxis"]["type"] = "log"
+
+    # Add masks
+    for name, var in sorted(input_data.masks):
+        trace = dict(x=x, y=var.values * ymax,
+                              type="scattergl", mode="none",
+                              fill="tozeroy")
+        data.append(trace)
+
 
     fig = go.Figure(data=data, layout=layout)
     render_plot(static_fig=fig, interactive_fig=fig, backend=backend,
