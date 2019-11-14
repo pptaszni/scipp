@@ -253,7 +253,7 @@ class Slicer2d(Slicer):
             attr_names = ["cmin", "cmax"]
         else:
             attr_names = ["zmin", "zmax"]
-        self.scalarMap = [None, None]
+        self.scalarMap = dict()
         for i, (key, val) in enumerate(sorted(params.items())):
             if val is not None:
                 arr = getattr(self.input_data, key)
@@ -267,9 +267,12 @@ class Slicer2d(Slicer):
                     vmax = np.amax(arr[np.where(np.isfinite(arr))])
 
                 if rasterize:
-                    self.scalarMap[i] = cm.ScalarMappable(
+                    self.scalarMap[key] = cm.ScalarMappable(
                         norm=Normalize(vmin=vmin, vmax=vmax),
                         cmap=self.cb["name"].lower())
+                    self.scalarMap[key+"_mask"] = cm.ScalarMappable(
+                        norm=Normalize(vmin=vmin, vmax=vmax),
+                        cmap="gray")
 
                 # self.fig.data[i][attr_names[0]] = vmin
                 # self.fig.data[i][attr_names[1]] = vmax
@@ -400,42 +403,92 @@ class Slicer2d(Slicer):
         # Check if dimensions of arrays agree, if not, plot the transpose
         slice_dims = vslice.dims
         transp = slice_dims == button_dims
-        self.update_z2d(vslice.values, transp, self.cb["log"], 0, selector=dict(meta="data", name="values"))
-        if self.show_masks:
-            # for i, m in enumerate(mslice):
-                # shp = np.array(np.shape(m.values))
-                # # tile = np.zeros_like(m.values, dtype=np.int)
-                # # tile[::2, 1::2] = 1
-                # tile = np.tile([[0, 1], [1, 0]], (shp//2 + 1))[:shp[0], :shp[1]]
-                # print(np.shape(tile))
-            self.update_z2d(np.where(mslice.values, vslice.values, None),
-                            transp, False, 0, selector=dict(meta="mask", name="values"))
-        if self.show_variances:
-            self.update_z2d(vslice.variances, transp, self.cb["log"], 1, selector=dict(meta="data", name="variances"))
+        # self.update_z2d(vslice.values, transp, self.cb["log"], 0, selector=dict(meta="data", name="values"))
+        if self.rasterize:
+            data_colors = self.scalarMap["values"].to_rgba(self.transpose_log(vslice.values, transp,
+                                                        self.cb["log"]))
+            # Image is upside down by default and needs to be flipped
+            img = ImageOps.flip(Image.fromarray(np.uint8(data_colors*255)))
             if self.show_masks:
-                self.update_z2d(np.where(mslice.values, vslice.variances, None),
-                            transp, False, 1, selector=dict(meta="mask", name="variances"))
+                mask_colors = self.scalarMap["values_mask"].to_rgba(self.transpose_log(
+                    np.where(mslice.values, vslice.values, None), transp, self.cb["log"]))
+                mask_img = ImageOps.flip(Image.fromarray(np.uint8(mask_colors*255)))
+                img.paste(mask_img, (0, 0), mask_img)
+                # Image.alpha_composite(background, foreground)
+                # background.show()
+            self.fig.layout["images"][0]["source"] = img
+            if self.show_variances:
+                data_colors = self.scalarMap["variances"].to_rgba(self.transpose_log(vslice.variances, transp,
+                                                        self.cb["log"]))
+                # Image is upside down by default and needs to be flipped
+                img = ImageOps.flip(Image.fromarray(np.uint8(data_colors*255)))
+                if self.show_masks:
+                    mask_colors = self.scalarMap["variances_mask"].to_rgba(self.transpose_log(
+                        np.where(mslice.values, vslice.variances, None), transp, self.cb["log"]))
+                    mask_img = ImageOps.flip(Image.fromarray(np.uint8(mask_colors*255)))
+                    img.paste(mask_img, (0, 0), mask_img)
+                    # background.show()
+                self.fig.layout["images"][1]["source"] = img
+
+
+        else:
+            self.fig.update_traces(z=self.transpose_log(vslice.values, transp,
+                                                        self.cb["log"]),
+                                   selector=dict(meta="data", name="values"))
+            if self.show_masks:
+                # for i, m in enumerate(mslice):
+                    # shp = np.array(np.shape(m.values))
+                    # # tile = np.zeros_like(m.values, dtype=np.int)
+                    # # tile[::2, 1::2] = 1
+                    # tile = np.tile([[0, 1], [1, 0]], (shp//2 + 1))[:shp[0], :shp[1]]
+                    # print(np.shape(tile))
+                # self.update_z2d(np.where(mslice.values, vslice.values, None),
+                #                 transp, False, 0, selector=dict(meta="mask", name="values"))
+                self.fig.update_traces(z=self.transpose_log(
+                    np.where(mslice.values, vslice.values, None), transp, self.cb["log"]),
+                           selector=dict(meta="mask", name="values"))
+
+            if self.show_variances:
+                self.fig.update_traces(z=self.transpose_log(vslice.variances, transp,
+                                                        self.cb["log"]),
+                                   selector=dict(meta="data", name="variances"))
+                # self.update_z2d(vslice.variances, transp, self.cb["log"], 1, selector=dict(meta="data", name="variances"))
+                if self.show_masks:
+                    self.fig.update_traces(z=self.transpose_log(
+                        np.where(mslice.values, vslice.variances, None), transp, self.cb["log"]),
+                               selector=dict(meta="mask", name="variances"))
+                    # self.update_z2d(np.where(mslice.values, vslice.variances, None),
+                    #             transp, False, 1, selector=dict(meta="mask", name="variances"))
 
         return
 
-    def update_z2d(self, values, transp, log, indx, selector):
+    def transpose_log(self, values, transp, log):
         if transp:
             values = values.T
         if log:
             with np.errstate(invalid="ignore", divide="ignore"):
                 values = np.log10(values)
-        if self.rasterize:
-            seg_colors = self.scalarMap[indx].to_rgba(values)
-            # Image is upside down by default and needs to be flipped
-            img = ImageOps.flip(Image.fromarray(np.uint8(seg_colors*255)))
-            # self.fig.layout["images"][indx]["x"] = self.fig.data[indx]["x"][0]
-            # self.fig.layout["images"][indx]["sizex"] = \
-            #     self.fig.data[indx]["x"][-1] - self.fig.data[indx]["x"][0]
-            # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
-            # self.fig.layout["images"][indx]["sizey"] = \
-            #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
-            self.fig.layout["images"][indx]["source"] = img
-        else:
-            # self.fig.data[indx].z = values
-            self.fig.update_traces(z=values, selector=selector)
-        return
+        return values
+
+    # def update_z2d(self, values, transp, log, indx, selector):
+    #     if transp:
+    #         values = values.T
+    #     if log:
+    #         with np.errstate(invalid="ignore", divide="ignore"):
+    #             values = np.log10(values)
+    #     if self.rasterize:
+    #         seg_colors = self.scalarMap[indx].to_rgba(values)
+    #         # Image is upside down by default and needs to be flipped
+    #         img = ImageOps.flip(Image.fromarray(np.uint8(seg_colors*255)))
+
+    #         # self.fig.layout["images"][indx]["x"] = self.fig.data[indx]["x"][0]
+    #         # self.fig.layout["images"][indx]["sizex"] = \
+    #         #     self.fig.data[indx]["x"][-1] - self.fig.data[indx]["x"][0]
+    #         # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
+    #         # self.fig.layout["images"][indx]["sizey"] = \
+    #         #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
+    #         self.fig.layout["images"][indx]["source"] = img
+    #     else:
+    #         # self.fig.data[indx].z = values
+    #         self.fig.update_traces(z=values, selector=selector)
+    #     return
