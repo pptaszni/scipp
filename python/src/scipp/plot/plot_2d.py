@@ -222,7 +222,7 @@ class Slicer2d(Slicer):
             data["colorbar"]["x"] = 1.0
             data["name"] = "variances"
             self.fig.add_trace(data, row=1, col=2)
-            if self.show_masks:
+            if self.show_masks  and not self.rasterize:
                 data["colorscale"] = "Gray"
                 data["hoverinfo"] = "none"
                 data["showscale"] = False
@@ -240,7 +240,7 @@ class Slicer2d(Slicer):
                 self.fig.update_yaxes(row=1, col=2, **layout["yaxis"])
         else:
             self.fig = go.FigureWidget(data=[data], layout=layout)
-            if self.show_masks:
+            if self.show_masks and not self.rasterize:
                 data["colorscale"] = "Gray"
                 data["hoverinfo"] = "none"
                 data["showscale"] = False
@@ -266,7 +266,7 @@ class Slicer2d(Slicer):
                 else:
                     vmax = np.amax(arr[np.where(np.isfinite(arr))])
 
-                if rasterize:
+                if self.rasterize:
                     self.scalarMap[key] = cm.ScalarMappable(
                         norm=Normalize(vmin=vmin, vmax=vmax),
                         cmap=self.cb["name"].lower())
@@ -407,8 +407,10 @@ class Slicer2d(Slicer):
         if self.rasterize:
             data_colors = self.scalarMap["values"].to_rgba(self.transpose_log(vslice.values, transp,
                                                         self.cb["log"]))
+            # print(data_colors)
             # Image is upside down by default and needs to be flipped
             img = ImageOps.flip(Image.fromarray(np.uint8(data_colors*255)))
+            # img.show()
             if self.show_masks:
                 mask_colors = self.scalarMap["values_mask"].to_rgba(self.transpose_log(
                     np.where(mslice.values, vslice.values, None), transp, self.cb["log"]))
@@ -417,6 +419,10 @@ class Slicer2d(Slicer):
                 # Image.alpha_composite(background, foreground)
                 # background.show()
             self.fig.layout["images"][0]["source"] = img
+            print(self.fig.layout["images"][0]["x"], self.fig.layout["images"][0]["sizex"])
+            print(self.fig.layout["images"][0]["y"], self.fig.layout["images"][0]["sizey"])
+            print(self.fig.layout["images"][0])
+            # print(data_colors)
             if self.show_variances:
                 data_colors = self.scalarMap["variances"].to_rgba(self.transpose_log(vslice.variances, transp,
                                                         self.cb["log"]))
