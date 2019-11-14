@@ -7,6 +7,7 @@ from ..config import plot as config
 from .render import render_plot
 from .slicer import Slicer
 from .tools import axis_label, parse_colorbar
+from .._scipp.core import combine_masks
 
 # Other imports
 import numpy as np
@@ -75,37 +76,71 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
             plot_type = 'contour'
         hoverinfo = "x+y+z"
 
-    data = [dict(x=[0.0, 1.0],
+    data = dict(x=[0.0, 1.0],
                 y=[0.0, 1.0],
                 z=[[0.0]],
                 type=plot_type,
                 colorscale=cbar["name"],
                 colorbar=cbdict,
                 opacity=int(not rasterize),
-                hoverinfo=hoverinfo
-                )]
-    show_masks = ((len(input_data.masks) > 0) and show_masks)
-    for i, (key, msk) in enumerate(sorted(input_data.masks)):
+                hoverinfo=hoverinfo,
+                meta="data",
+                name="values"
+                )
+
+    # # masks = dict()
+    # show_masks = ((len(masks.keys()) > 0) and show_masks)
     # if show_masks:
-        if mask_color is None:
-            col = "#{}".format(hashlib.sha1(key.encode()).hexdigest()[:6])
-        elif isinstance(mask_color, list):
-            col = mask_color[i]
-        else:
-            col = mask_color
-        print(col)
-        data.append(
-            dict(x=[0.0, 1.0],
-                y=[0.0, 1.0],
-                z=[[None]],
-                type=plot_type,
-                colorscale=[[0, col], [1, col]],
-                colorbar=cbdict,
-                opacity=0.8,
-                hovertext=[key],
-                hoverinfo="text",
-                showscale=False
-                ))
+
+
+    #     for i, (key, msk) in enumerate(sorted(input_data.masks)):
+    #         if msk.dims == var.dims:
+    #             if mask_color is None:
+    #                 col = "#{}".format(hashlib.sha1(key.encode()).hexdigest()[:6])
+    #             elif isinstance(mask_color, list):
+    #                 col = mask_color[i]
+    #             else:
+    #                 col = mask_color
+    #             # print(col)
+    #             data.append(
+    #                 dict(x=[0.0, 1.0],
+    #                     y=[0.0, 1.0],
+    #                     z=[[None]],
+    #                     type=plot_type,
+    #                     # colorscale=[[0, 'white'], [1, col]],
+    #                     colorscale="Gray",
+    #                     colorbar=cbdict,
+    #                     opacity=1,
+    #                     hovertext=[key],
+    #                     hoverinfo="text",
+    #                     showscale=False,
+    #                     # showlegend=True
+    #                     ))
+    #             masks[key] = msk
+    # show_masks = ((len(masks.keys()) > 0) and show_masks)
+
+    # show_masks = ((len(input_data.masks) > 0) and show_masks)
+    # for i, (key, msk) in enumerate(sorted(input_data.masks)):
+    # # if show_masks:
+    #     if mask_color is None:
+    #         col = "#{}".format(hashlib.sha1(key.encode()).hexdigest()[:6])
+    #     elif isinstance(mask_color, list):
+    #         col = mask_color[i]
+    #     else:
+    #         col = mask_color
+    #     print(col)
+    #     data.append(
+    #         dict(x=[0.0, 1.0],
+    #             y=[0.0, 1.0],
+    #             z=[[None]],
+    #             type=plot_type,
+    #             colorscale=[[0, 'white'], [1, 'black']],
+    #             colorbar=cbdict,
+    #             opacity=0.8,
+    #             hovertext=[key],
+    #             hoverinfo="text",
+    #             showscale=False
+    #             ))
 
 
     sv = Slicer2d(data=data, layout=layout, input_data=var, axes=axes,
@@ -125,11 +160,43 @@ class Slicer2d(Slicer):
                  masks, surface3d=False):
 
         super().__init__(input_data, axes, value_name, cb, show_variances,
-                         show_masks, button_options=['X', 'Y'])
+                         show_masks, masks, button_options=['X', 'Y'])
 
         self.surface3d = surface3d
         self.rasterize = rasterize
-        self.masks = masks
+        # self.show_masks = show_masks
+
+        # self.masks = dict()
+
+        # show_masks = ((len(input_data.masks) > 0) and show_masks)
+        self.mask = None
+        if self.show_masks:
+            self.mask = combine_masks(masks)
+        #     for i, (key, msk) in enumerate(sorted(masks)):
+        #         if msk.dims == self.input_data.dims:
+        #             if mask_color is None:
+        #                 col = "#{}".format(hashlib.sha1(key.encode()).hexdigest()[:6])
+        #             elif isinstance(mask_color, list):
+        #                 col = mask_color[i]
+        #             else:
+        #                 col = mask_color
+        #             # print(col)
+        #             data.append(
+        #                 dict(x=[0.0, 1.0],
+        #                     y=[0.0, 1.0],
+        #                     z=[[None]],
+        #                     type=plot_type,
+        #                     colorscale=[[0, 'white'], [1, col]],
+        #                     colorbar=cbdict,
+        #                     opacity=0.6,
+        #                     hovertext=[key],
+        #                     hoverinfo="text",
+        #                     showscale=False
+        #                     ))
+        #             self.masks[key] = msk
+        # self.show_masks = ((len(self.masks.keys()) > 0) and show_masks)
+
+        # self.masks = masks
 
         # Initialise Figure and VBox objects
         self.fig = None
@@ -145,12 +212,26 @@ class Slicer2d(Slicer):
             else:
                 self.fig = go.FigureWidget(
                     make_subplots(rows=1, cols=2, horizontal_spacing=0.16))
-            data[0]["colorbar"]["x"] = 0.42
-            data[0]["colorbar"]["thickness"] = 0.02
-            self.fig.add_trace(data[0], row=1, col=1)
-            data[0]["colorbar"]["title"] = "variances"
-            data[0]["colorbar"]["x"] = 1.0
-            self.fig.add_trace(data[0], row=1, col=2)
+            # Make a backup of the original trace dict
+            # trace = data.copy()
+            data["colorbar"]["x"] = 0.42
+            data["colorbar"]["thickness"] = 0.02
+            self.fig.add_trace(data, row=1, col=1)
+            # trace = data.copy()
+            data["colorbar"]["title"] = "variances"
+            data["colorbar"]["x"] = 1.0
+            data["name"] = "variances"
+            self.fig.add_trace(data, row=1, col=2)
+            if self.show_masks:
+                data["colorscale"] = "Gray"
+                data["hoverinfo"] = "none"
+                data["showscale"] = False
+                data["meta"] = "mask"
+                data["name"] = "values"
+                self.fig.add_trace(data, row=1, col=1)
+                data["name"] = "variances"
+                self.fig.add_trace(data, row=1, col=2)
+
             self.fig.update_layout(**layout)
             if self.rasterize:
                 self.fig.update_xaxes(row=1, col=1, **layout["xaxis"])
@@ -158,7 +239,13 @@ class Slicer2d(Slicer):
                 self.fig.update_yaxes(row=1, col=1, **layout["yaxis"])
                 self.fig.update_yaxes(row=1, col=2, **layout["yaxis"])
         else:
-            self.fig = go.FigureWidget(data=data, layout=layout)
+            self.fig = go.FigureWidget(data=[data], layout=layout)
+            if self.show_masks:
+                data["colorscale"] = "Gray"
+                data["hoverinfo"] = "none"
+                data["showscale"] = False
+                data["meta"] = "mask"
+                self.fig.add_trace(data)
 
         # Set colorbar limits once to keep them constant for slicer
         # TODO: should there be auto scaling as slider value is changed?
@@ -184,8 +271,10 @@ class Slicer2d(Slicer):
                         norm=Normalize(vmin=vmin, vmax=vmax),
                         cmap=self.cb["name"].lower())
 
-                self.fig.data[i][attr_names[0]] = vmin
-                self.fig.data[i][attr_names[1]] = vmax
+                # self.fig.data[i][attr_names[0]] = vmin
+                # self.fig.data[i][attr_names[1]] = vmax
+                args = {attr_names[0]: vmin, attr_names[1]: vmax, "selector": dict(name=key)}
+                self.fig.update_traces(**args)
 
         if self.surface3d:
             self.fig.layout.scene1.zaxis.title = self.value_name
@@ -236,13 +325,31 @@ class Slicer2d(Slicer):
         for key, button in self.buttons.items():
             if self.slider[key].disabled:
                 but_val = button.value.lower()
-                for i in range((1 + self.show_variances) * self.show_masks*(len(self.masks))):
-                    if self.rasterize:
-                        self.fig.data[i][but_val] = \
-                            self.slider_x[key].values[[0, -1]]
-                    else:
-                        self.fig.data[i][but_val] = \
-                            self.slider_x[key].values
+                # for i in range((1 + self.show_variances) * self.show_masks*(len(self.masks.keys()))):
+                #     if self.rasterize:
+                #         self.fig.data[i][but_val] = \
+                #             self.slider_x[key].values[[0, -1]]
+                #     else:
+                #         self.fig.data[i][but_val] = \
+                #             self.slider_x[key].values
+                if self.rasterize:
+                    # self.fig.data[i][but_val] = \
+                    #     self.slider_x[key].values[[0, -1]]
+                    [x0, x1] = self.slider_x[key].values[[0, -1]]
+                    args = {but_val: [x0, x1]}
+                    # self.fig.update_traces(marker=dict(color="red"), selector=dict(meta="data", name="values"))
+                    for i in range(1 + self.show_variances):
+                        self.fig.layout["images"][i][but_val] = x0
+                        self.fig.layout["images"][i]["size{}".format(but_val)] = \
+                            x1 - x0
+                        # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
+                        # self.fig.layout["images"][indx]["sizey"] = \
+                        #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
+                else:
+                    args = {but_val: self.slider_x[key].values}
+                    # self.fig.data[i][but_val] = \
+                    #     self.slider_x[key].values
+                self.fig.update_traces(**args)
                 if self.surface3d:
                     self.fig.layout.scene1["{}axis_title".format(
                         but_val)] = axis_label(self.slider_x[key],
@@ -274,7 +381,8 @@ class Slicer2d(Slicer):
         vslice = self.input_data
         # Do we also need to slice the masks?
         if self.show_masks:
-            mslice = [var for key, var in sorted(self.masks)]
+            # mslice = [var for key, var in sorted(self.masks.items())]
+            mslice = self.mask
 
         # Slice along dimensions with active sliders
         button_dims = [None, None]
@@ -284,23 +392,33 @@ class Slicer2d(Slicer):
                     self.slider_x[key].values[val.value])
                 vslice = vslice[val.dim, val.value]
                 if self.show_masks:
-                    for i, (key, var) in enumerate(sorted(self.masks)):
-                        mslice[i] = mslice[i][val.dim, val.value]
+                    # for i, (key, var) in enumerate(sorted(self.masks.items())):
+                    mslice = mslice[val.dim, val.value]
             else:
                 button_dims[self.buttons[key].value.lower() == "y"] = val.dim
 
         # Check if dimensions of arrays agree, if not, plot the transpose
         slice_dims = vslice.dims
         transp = slice_dims == button_dims
-        self.update_z2d(vslice.values, transp, self.cb["log"], 0)
+        self.update_z2d(vslice.values, transp, self.cb["log"], 0, selector=dict(meta="data", name="values"))
         if self.show_masks:
-            for i, m in enumerate(mslice):
-                self.update_z2d(np.where(m.values, 1, None), transp, False, i + 1)
+            # for i, m in enumerate(mslice):
+                # shp = np.array(np.shape(m.values))
+                # # tile = np.zeros_like(m.values, dtype=np.int)
+                # # tile[::2, 1::2] = 1
+                # tile = np.tile([[0, 1], [1, 0]], (shp//2 + 1))[:shp[0], :shp[1]]
+                # print(np.shape(tile))
+            self.update_z2d(np.where(mslice.values, vslice.values, None),
+                            transp, False, 0, selector=dict(meta="mask", name="values"))
         if self.show_variances:
-            self.update_z2d(vslice.variances, transp, self.cb["log"], 1)
+            self.update_z2d(vslice.variances, transp, self.cb["log"], 1, selector=dict(meta="data", name="variances"))
+            if self.show_masks:
+                self.update_z2d(np.where(mslice.values, vslice.variances, None),
+                            transp, False, 1, selector=dict(meta="mask", name="variances"))
+
         return
 
-    def update_z2d(self, values, transp, log, indx):
+    def update_z2d(self, values, transp, log, indx, selector):
         if transp:
             values = values.T
         if log:
@@ -310,13 +428,14 @@ class Slicer2d(Slicer):
             seg_colors = self.scalarMap[indx].to_rgba(values)
             # Image is upside down by default and needs to be flipped
             img = ImageOps.flip(Image.fromarray(np.uint8(seg_colors*255)))
-            self.fig.layout["images"][indx]["x"] = self.fig.data[indx]["x"][0]
-            self.fig.layout["images"][indx]["sizex"] = \
-                self.fig.data[indx]["x"][-1] - self.fig.data[indx]["x"][0]
-            self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
-            self.fig.layout["images"][indx]["sizey"] = \
-                self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
+            # self.fig.layout["images"][indx]["x"] = self.fig.data[indx]["x"][0]
+            # self.fig.layout["images"][indx]["sizex"] = \
+            #     self.fig.data[indx]["x"][-1] - self.fig.data[indx]["x"][0]
+            # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
+            # self.fig.layout["images"][indx]["sizey"] = \
+            #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
             self.fig.layout["images"][indx]["source"] = img
         else:
-            self.fig.data[indx].z = values
+            # self.fig.data[indx].z = values
+            self.fig.update_traces(z=values, selector=selector)
         return
