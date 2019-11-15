@@ -293,9 +293,15 @@ class Slicer2d(Slicer):
                          # "sizex":500,
                          # "y":300,
                          # "sizey":300,}
-            im_list = [go.layout.Image(xref="x", yref="y", **im_params)]
+            im_list = [go.layout.Image(xref="x", yref="y", name="values", **im_params)]
+            if self.show_masks:
+                im_list.append(go.layout.Image(xref="x", yref="y", name="values_mask",
+                                               **im_params))
             if self.show_variances:
-                im_list.append(go.layout.Image(xref="x2", yref="y2",
+                im_list.append(go.layout.Image(xref="x2", yref="y2", name="variances",
+                                               **im_params))
+                if self.show_masks:
+                    im_list.append(go.layout.Image(xref="x2", yref="y2", name="variances_mask",
                                                **im_params))
             self.fig.update_layout(images=im_list)
         # import IPython.display as disp
@@ -350,13 +356,16 @@ class Slicer2d(Slicer):
                     args = {but_val: xlims}
                     # self.fig.update_traces(marker=dict(color="red"), selector=dict(meta="data", name="values"))
                     # print("but_val, xlims, args", but_val, xlims, args)
-                    for i in range(1 + self.show_variances):
-                        self.fig.layout["images"][i][but_val] = xlims[but_val == "y"]
-                        self.fig.layout["images"][i]["size{}".format(but_val)] = \
-                            xlims[1] - xlims[0]
-                        # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
-                        # self.fig.layout["images"][indx]["sizey"] = \
-                        #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
+                    # for i in range(1 + self.show_variances):
+                    for im in self.fig.layout["images"]:
+                        im[but_val] = xlims[but_val == "y"]
+                        im["size{}".format(but_val)] = xlims[1] - xlims[0]
+                        # self.fig.layout["images"][i][but_val] = xlims[but_val == "y"]
+                        # self.fig.layout["images"][i]["size{}".format(but_val)] = \
+                        #     xlims[1] - xlims[0]
+                        # # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
+                        # # self.fig.layout["images"][indx]["sizey"] = \
+                        # #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
                 else:
                     args = {but_val: self.slider_x[key].values}
                     # self.fig.data[i][but_val] = \
@@ -419,15 +428,36 @@ class Slicer2d(Slicer):
             # print(data_colors)
             # Image is upside down by default and needs to be flipped
             img = ImageOps.flip(Image.fromarray(np.uint8(data_colors*255)))
+            for im in self.fig.layout["images"]:
+                if im.name == "values":
+                    im["source"] = img
+                    break
             # img.show()
             if self.show_masks:
                 mask_colors = self.scalarMap["values_mask"].to_rgba(self.transpose_log(
-                    np.where(mslice.values, vslice.values, None), transp, self.cb["log"]))
+                    vslice.values, transp, self.cb["log"]))
+                # mask_alpha = np.where(mslice.values, 1, 0)
+                mask_colors[:,:,3] = np.where(mslice.values, 1, 0)
+                # mask_colors = self.scalarMap["values_mask"].to_rgba(self.transpose_log(
+                #     np.where(mslice.values, vslice.values, None), transp, self.cb["log"]))
                 mask_img = ImageOps.flip(Image.fromarray(np.uint8(mask_colors*255)))
-                img.paste(mask_img, (0, 0), mask_img)
+                # print(mask_colors)
+                # mask_array = np.array(mask_img)
+                # print(np.shape(mask_array))
+                # mask_alpha = np.where(mslice.values, 1, 0)
+                # mask_array[:,:,3] = mask_alpha
+                # # print(np.shape(mask_array[mask_ind]))
+                # # mask_array = np.where(ma[mask_ind][:,:,3] = 0
+                # # print(np.shape(mask_img))
+                # # img.paste(mask_img, (0, 0), mask_img)
+                # # mask_img.putdata(mask_array)
+                # mask_img = Image.fromarray(mask_array)
+                for im in self.fig.layout["images"]:
+                    if im.name == "values_mask":
+                        im["source"] = mask_img
                 # Image.alpha_composite(background, foreground)
                 # background.show()
-            self.fig.layout["images"][0]["source"] = img
+            # self.fig.layout["images"][0]["source"] = img
             # print(self.fig.layout["images"][0]["x"], self.fig.layout["images"][0]["sizex"])
             # print(self.fig.layout["images"][0]["y"], self.fig.layout["images"][0]["sizey"])
             # print(self.fig.layout["images"][0])
