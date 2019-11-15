@@ -82,7 +82,7 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
                 type=plot_type,
                 colorscale=cbar["name"],
                 colorbar=cbdict,
-                opacity=int(not rasterize),
+                opacity=0.5, # int(not rasterize),
                 hoverinfo=hoverinfo,
                 meta="data",
                 name="values"
@@ -288,11 +288,19 @@ class Slicer2d(Slicer):
             # Add background image
             im_params = {"opacity": 1.0, "layer": "below", "sizing": "stretch",
                          "source": None}
+                         # "https://raw.githubusercontent.com/michaelbabyn/plot_data/master/bridge.jpg",
+                         # "x":0,
+                         # "sizex":500,
+                         # "y":300,
+                         # "sizey":300,}
             im_list = [go.layout.Image(xref="x", yref="y", **im_params)]
             if self.show_variances:
                 im_list.append(go.layout.Image(xref="x2", yref="y2",
                                                **im_params))
             self.fig.update_layout(images=im_list)
+        # import IPython.display as disp
+        # disp.display(self.fig)
+        # return
 
         # Call update_slice once to make the initial image
         self.update_axes()
@@ -338,13 +346,14 @@ class Slicer2d(Slicer):
                 if self.rasterize:
                     # self.fig.data[i][but_val] = \
                     #     self.slider_x[key].values[[0, -1]]
-                    [x0, x1] = self.slider_x[key].values[[0, -1]]
-                    args = {but_val: [x0, x1]}
+                    xlims = self.slider_x[key].values[[0, -1]]
+                    args = {but_val: xlims}
                     # self.fig.update_traces(marker=dict(color="red"), selector=dict(meta="data", name="values"))
+                    print("but_val, xlims, args", but_val, xlims, args)
                     for i in range(1 + self.show_variances):
-                        self.fig.layout["images"][i][but_val] = x0
+                        self.fig.layout["images"][i][but_val] = xlims[but_val == "y"]
                         self.fig.layout["images"][i]["size{}".format(but_val)] = \
-                            x1 - x0
+                            xlims[1] - xlims[0]
                         # self.fig.layout["images"][indx]["y"] = self.fig.data[indx]["y"][-1]
                         # self.fig.layout["images"][indx]["sizey"] = \
                         #     self.fig.data[indx]["y"][-1] - self.fig.data[indx]["y"][0]
