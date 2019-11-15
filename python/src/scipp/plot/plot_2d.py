@@ -82,7 +82,7 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
                 type=plot_type,
                 colorscale=cbar["name"],
                 colorbar=cbdict,
-                opacity=0.5, # int(not rasterize),
+                opacity=int(not rasterize),
                 hoverinfo=hoverinfo,
                 meta="data",
                 name="values"
@@ -346,10 +346,10 @@ class Slicer2d(Slicer):
                 if self.rasterize:
                     # self.fig.data[i][but_val] = \
                     #     self.slider_x[key].values[[0, -1]]
-                    xlims = self.slider_x[key].values[[0, -1]]
+                    xlims = [self.slider_x[key].values[0], self.slider_x[key].values[-1]]
                     args = {but_val: xlims}
                     # self.fig.update_traces(marker=dict(color="red"), selector=dict(meta="data", name="values"))
-                    print("but_val, xlims, args", but_val, xlims, args)
+                    # print("but_val, xlims, args", but_val, xlims, args)
                     for i in range(1 + self.show_variances):
                         self.fig.layout["images"][i][but_val] = xlims[but_val == "y"]
                         self.fig.layout["images"][i]["size{}".format(but_val)] = \
@@ -428,9 +428,9 @@ class Slicer2d(Slicer):
                 # Image.alpha_composite(background, foreground)
                 # background.show()
             self.fig.layout["images"][0]["source"] = img
-            print(self.fig.layout["images"][0]["x"], self.fig.layout["images"][0]["sizex"])
-            print(self.fig.layout["images"][0]["y"], self.fig.layout["images"][0]["sizey"])
-            print(self.fig.layout["images"][0])
+            # print(self.fig.layout["images"][0]["x"], self.fig.layout["images"][0]["sizex"])
+            # print(self.fig.layout["images"][0]["y"], self.fig.layout["images"][0]["sizey"])
+            # print(self.fig.layout["images"][0])
             # print(data_colors)
             if self.show_variances:
                 data_colors = self.scalarMap["variances"].to_rgba(self.transpose_log(vslice.variances, transp,
