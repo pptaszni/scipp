@@ -8,7 +8,7 @@ from .tools import axis_to_dim_label
 class Slicer:
 
     def __init__(self, input_data, axes, value_name, cb, show_variances,
-                 show_masks, masks, button_options):
+                 masks, button_options):
 
         import ipywidgets as widgets
 
@@ -16,7 +16,7 @@ class Slicer:
         self.show_variances = ((self.input_data.variances is not None) and
                                show_variances)
         # self.show_masks = show_masks
-        self.show_masks = ((len(masks) > 0) and show_masks)
+        self.show_masks = len(masks) > 0
         self.cb = cb
         self.value_name = value_name
 
