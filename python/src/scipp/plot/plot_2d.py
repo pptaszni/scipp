@@ -536,31 +536,41 @@ class Slicer2d(Slicer):
 
 
         else:
-            self.fig.update_traces(z=self.transpose_log(vslice.values, transp,
-                                                        self.cb["log"]),
-                                   selector=dict(meta="data", name="values"))
+            # self.fig.update_traces(z=self.transpose_log(vslice.values, transp,
+            #                                             self.cb["log"]),
+            #                        selector=dict(meta="data", name="values"))
+            self.update_heatmaps(vslice.values, transp,
+                                 dict(meta="data", name="values"))
             if self.show_masks:
+                self.update_heatmaps(
+                    np.where(mslice.values, vslice.values, None), transp,
+                    dict(meta="mask", name="values"))
                 # for i, m in enumerate(mslice):
                     # shp = np.array(np.shape(m.values))
                     # # tile = np.zeros_like(m.values, dtype=np.int)
                     # # tile[::2, 1::2] = 1
                     # tile = np.tile([[0, 1], [1, 0]], (shp//2 + 1))[:shp[0], :shp[1]]
-                    # print(np.shape(tile))
-                # self.update_z2d(np.where(mslice.values, vslice.values, None),
-                #                 transp, False, 0, selector=dict(meta="mask", name="values"))
-                self.fig.update_traces(z=self.transpose_log(
-                    np.where(mslice.values, vslice.values, None), transp, self.cb["log"]),
-                           selector=dict(meta="mask", name="values"))
+                #     # print(np.shape(tile))
+                # # self.update_z2d(np.where(mslice.values, vslice.values, None),
+                # #                 transp, False, 0, selector=dict(meta="mask", name="values"))
+                # self.fig.update_traces(z=self.transpose_log(
+                #     np.where(mslice.values, vslice.values, None), transp, self.cb["log"]),
+                #            selector=dict(meta="mask", name="values"))
 
             if self.show_variances:
-                self.fig.update_traces(z=self.transpose_log(vslice.variances, transp,
-                                                        self.cb["log"]),
-                                   selector=dict(meta="data", name="variances"))
+                self.update_heatmaps(vslice.variances, transp,
+                                 dict(meta="data", name="variances"))
+                # self.fig.update_traces(z=self.transpose_log(vslice.variances, transp,
+                #                                         self.cb["log"]),
+                #                    selector=dict(meta="data", name="variances"))
                 # self.update_z2d(vslice.variances, transp, self.cb["log"], 1, selector=dict(meta="data", name="variances"))
                 if self.show_masks:
-                    self.fig.update_traces(z=self.transpose_log(
-                        np.where(mslice.values, vslice.variances, None), transp, self.cb["log"]),
-                               selector=dict(meta="mask", name="variances"))
+                    self.update_heatmaps(
+                        np.where(mslice.values, vslice.variances, None),
+                        transp, dict(meta="mask", name="variances"))
+                    # self.fig.update_traces(z=self.transpose_log(
+                    #     np.where(mslice.values, vslice.variances, None), transp, self.cb["log"]),
+                    #            selector=dict(meta="mask", name="variances"))
                     # self.update_z2d(np.where(mslice.values, vslice.variances, None),
                     #             transp, False, 1, selector=dict(meta="mask", name="variances"))
 
@@ -589,6 +599,12 @@ class Slicer2d(Slicer):
             with np.errstate(invalid="ignore", divide="ignore"):
                 values = np.log10(values)
         return values
+
+    def update_heatmaps(self, array, transp, selector):
+        self.fig.update_traces(
+            z=self.transpose_log(array, transp, self.cb["log"]),
+            selector=selector)
+        return
 
     # def update_z2d(self, values, transp, log, indx, selector):
     #     if transp:
