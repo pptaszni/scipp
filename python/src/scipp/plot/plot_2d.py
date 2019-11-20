@@ -9,6 +9,7 @@ from .slicer import Slicer
 from .tools import axis_label, parse_colorbar
 from .._scipp.core import combine_masks
 
+
 # Other imports
 import numpy as np
 import ipywidgets as widgets
@@ -301,8 +302,8 @@ class Slicer2d(Slicer):
         button_dims = [None, None]
         for key, val in self.slider.items():
             if not val.disabled:
-                self.lab[key].value = str(
-                    self.slider_x[key].values[val.value])
+                self.lab[key].value = self.make_slider_label(
+                    self.slider_x[key], val.value)
                 vslice = vslice[val.dim, val.value]
                 if self.show_masks:
                     # for i, (key, var) in enumerate(sorted(self.masks.items())):
