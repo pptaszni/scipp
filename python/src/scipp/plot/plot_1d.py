@@ -79,7 +79,8 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
 
 class Slicer1d(Slicer):
 
-    def __init__(self, data, layout, input_data, axes, color):
+    def __init__(self, data=None, layout=None, input_data=None, axes=None,
+                 color=None):
 
         super().__init__(input_data=input_data, axes=axes,
                          button_options=['X'])

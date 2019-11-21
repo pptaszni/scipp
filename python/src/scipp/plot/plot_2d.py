@@ -7,7 +7,7 @@ from ..config import plot as config
 from .render import render_plot
 from .slicer import Slicer
 from .tools import axis_label, parse_colorbar
-from .._scipp.core import combine_masks
+from .._scipp.core import combine_masks, Variable
 
 
 # Other imports
@@ -18,7 +18,6 @@ from plotly.subplots import make_subplots
 from PIL import Image, ImageOps
 from matplotlib import cm
 from matplotlib.colors import Normalize
-import hashlib
 
 
 def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
@@ -91,7 +90,8 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
 
     sv = Slicer2d(data=data, layout=layout, input_data=var, axes=axes,
                   value_name=title, cb=cbar, show_variances=show_variances,
-                  rasterize=rasterize, show_masks=show_masks, masks=masks)
+                  rasterize=rasterize, show_masks=show_masks, masks=masks,
+                  mask_color=mask_color)
 
     render_plot(static_fig=sv.fig, interactive_fig=sv.vbox, backend=backend,
                 filename=filename)
@@ -101,18 +101,24 @@ def plot_2d(input_data, axes=None, contours=False, cb=None, filename=None,
 
 class Slicer2d(Slicer):
 
-    def __init__(self, data, layout, input_data, axes,
-                 value_name, cb, show_variances, rasterize, show_masks,
-                 masks, surface3d=False):
+    def __init__(self, data=None, layout=None, input_data=None, axes=None,
+                 value_name=None, cb=None, show_variances=False,
+                 rasterize=False, show_masks=False, masks=None,
+                 mask_color=None, surface3d=False):
 
-        super().__init__(input_data, axes, value_name, cb, show_variances,
-                         masks, button_options=['X', 'Y'])
+        super().__init__(input_data=input_data, axes=axes,
+                         value_name=value_name, cb=cb,
+                         show_variances=show_variances, masks=masks,
+                         button_options=['X', 'Y'])
 
         self.surface3d = surface3d
         self.rasterize = rasterize
         self.mask = None
+        mask_colorscale = "Gray"
         if self.show_masks:
             self.mask = combine_masks(masks)
+            if mask_color is not None:
+                mask_colorscale = [[0, mask_color], [1, mask_color]]
 
         # Initialise Figure and VBox objects
         self.fig = None
@@ -136,7 +142,7 @@ class Slicer2d(Slicer):
             data["name"] = "variances"
             self.fig.add_trace(data, row=1, col=2)
             if self.show_masks  and not self.rasterize:
-                data["colorscale"] = "Gray"
+                data["colorscale"] = mask_colorscale
                 data["hoverinfo"] = "none"
                 data["showscale"] = False
                 data["meta"] = "mask"
@@ -155,7 +161,7 @@ class Slicer2d(Slicer):
         else:
             self.fig = go.FigureWidget(data=[data], layout=layout)
             if self.show_masks and not self.rasterize:
-                data["colorscale"] = "Gray"
+                data["colorscale"] = mask_colorscale
                 data["hoverinfo"] = "none"
                 data["showscale"] = False
                 data["meta"] = "mask"
@@ -306,25 +312,50 @@ class Slicer2d(Slicer):
                     self.slider_x[key], val.value)
                 vslice = vslice[val.dim, val.value]
                 if self.show_masks:
-                    # for i, (key, var) in enumerate(sorted(self.masks.items())):
-                    mslice = mslice[val.dim, val.value]
+                    # Masks do not necessarily have the same dimensions as the
+                    # data, so only slice if the dimension is present in the
+                    # mask dimensions. After that, it will automatically be
+                    # broadcast to higher dimensions if needed.
+                    if val.dim in mslice.dims:
+                        mslice = mslice[val.dim, val.value]
             else:
                 button_dims[self.buttons[key].value.lower() == "y"] = val.dim
 
         # Check if dimensions of arrays agree, if not, plot the transpose
         slice_dims = vslice.dims
         transp = slice_dims == button_dims
-        mask_alpha = None
+        # mask_alpha = None
+        # if self.show_masks:
+        #     mask_alpha = self.transpose_log(np.where(mslice.values, 1, 0),
+        #                                     transp, False)
+        #     print("mask_alpha shape", np.shape(mask_alpha), np.shape(mslice.values), transp)
+
         if self.show_masks:
-            mask_alpha = self.transpose_log(np.where(mslice.values, 1, 0),
-                                            transp, False)
+            # Use scipp's automatic broadcast functionality to broadcast
+            # lower dimension masks to higher dimensions
+            mask_array = Variable(vslice.dims,
+                                  values=np.ones_like(vslice.values),
+                                  dtype=np.int)
+            mask_array *= Variable(mslice.dims,
+                                   values=mslice.values.astype(np.int),
+                                   dtype=np.int)
+
         if self.rasterize:
+            mask_alpha = None
+            # if self.show_masks:
+            #     mask_alpha = self.transpose_log(np.where(mslice.values, 1, 0),
+            #                                     transp, False)
+            #     print("mask_alpha shape", np.shape(mask_alpha), np.shape(mslice.values), transp)
+
             im_sources = dict()
             val_array = self.transpose_log(vslice.values, transp, self.cb["log"])
             im_sources["values"] = self.to_image(val_array,
                                                  self.scalarMap["values"])
 
             if self.show_masks:
+                mask_alpha = self.transpose_log(np.where(mask_array.values, 1, 0),
+                                                transp, False)
+                # print("mask_alpha shape", np.shape(mask_alpha), np.shape(mslice.values), transp)
                 im_sources["values_mask"] = self.to_image(
                     val_array, self.scalarMap["values_mask"], alpha=mask_alpha)
             if self.show_variances:
@@ -344,15 +375,22 @@ class Slicer2d(Slicer):
             self.update_heatmaps(vslice.values, transp,
                                  dict(meta="data", name="values"))
             if self.show_masks:
+                # print("shapes", np.shape(np.where(mslice.values, vslice.values, None)))
+                # Use scipp's automatic broadcast functionality to broadcast
+                # lower dimension masks to higher dimensions
+                # msk = Variable(vslice.dims, values=np.ones_like(vslice.values), dtype=np.int)
+                # msk *= Variable(mslice.dims, values=mslice.values.astype(np.int), dtype=np.int)
+                # print(np.shape(msk))
+                # print(msk)
                 self.update_heatmaps(
-                    np.where(mslice.values, vslice.values, None), transp,
+                    np.where(mask_array.values, vslice.values, None), transp,
                     dict(meta="mask", name="values"))
             if self.show_variances:
                 self.update_heatmaps(vslice.variances, transp,
                                  dict(meta="data", name="variances"))
                 if self.show_masks:
                     self.update_heatmaps(
-                        np.where(mslice.values, vslice.variances, None),
+                        np.where(mask_array.values, vslice.variances, None),
                         transp, dict(meta="mask", name="variances"))
 
         return
