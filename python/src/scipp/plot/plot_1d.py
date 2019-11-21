@@ -7,6 +7,7 @@ from ..config import plot as config
 from .render import render_plot
 from .slicer import Slicer
 from .tools import axis_label
+from .._scipp.core import combine_masks
 
 # Other imports
 import numpy as np
@@ -15,7 +16,8 @@ import ipywidgets as widgets
 
 
 def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
-            color=None, filename=None, axes=None, show_masks=True):
+            color=None, filename=None, axes=None, show_masks=True,
+            mask_color=None):
     """
     Plot a 1D spectrum.
 
@@ -30,9 +32,10 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
 
     ymin = 1.0e30
     ymax = -1.0e30
+    masks = input_data.masks
+    print("here", masks)
 
     data = []
-    ymax = 1.0e-30
     for i, (name, var) in enumerate(sorted(input_data)):
 
         ax = var.dims
@@ -70,7 +73,8 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
     layout["yaxis"]["range"] = [ymin-dy, ymax+dy]
 
     sv = Slicer1d(data=data, layout=layout, input_data=input_data, axes=axes,
-                  color=color)
+                  color=color, show_masks=show_masks, masks=masks,
+                  mask_color=mask_color)
     render_plot(static_fig=sv.fig, interactive_fig=sv.box, backend=backend,
                 filename=filename)
 
@@ -80,21 +84,36 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
 class Slicer1d(Slicer):
 
     def __init__(self, data=None, layout=None, input_data=None, axes=None,
-                 color=None):
+                 color=None, show_masks=False, masks=None,
+                  mask_color="#000000"):
 
-        super().__init__(input_data=input_data, axes=axes,
+        super().__init__(input_data=input_data, axes=axes, masks=masks,
                          button_options=['X'])
 
         self.color = color
         self.fig = go.FigureWidget(layout=layout)
 
         self.traces = dict()
+        trace = dict(type="scattergl")
         for i, (name, var) in enumerate(sorted(self.input_data)):
-            trace = dict(name=name, type="scattergl")
+            trace["name"] = name
             if color is not None:
                 trace["marker"] = {"color": color[i]}
             self.traces[name] = i
             self.fig.add_trace(trace)
+
+        self.mask = None
+        if self.show_masks:
+            self.mask = combine_masks(masks)
+            trace = dict(name="masks", type="scattergl", fill="toself",
+                         mode="none", marker={"color": mask_color})
+            self.fig.add_trace(trace)
+        print(self.show_masks)
+        print(self.mask)
+        print(self.fig.data)
+
+        # Save a quick access to yrange
+        self.yrange = layout["yaxis"]["range"]
 
         # Disable buttons
         for key, button in self.buttons.items():
@@ -159,7 +178,7 @@ class Slicer1d(Slicer):
         return
 
     def update_axes(self, dim_str):
-        self.fig.data = self.fig.data[:len(self.input_data)]
+        self.fig.data = self.fig.data[:len(self.input_data) + self.show_masks]
         self.fig.update_traces(x=self.slider_x[dim_str].values)
         self.fig.layout["xaxis"]["title"] = axis_label(
             self.slider_x[dim_str], name=self.slider_labels[dim_str])
@@ -180,6 +199,19 @@ class Slicer1d(Slicer):
             self.fig.data[i].y = vslice.values
             if var.variances is not None:
                 self.fig.data[i]["error_y"].array = np.sqrt(vslice.variances)
+        if self.show_masks:
+            mslice = self.mask
+            # Slice along dimensions with active sliders
+            for key, val in self.slider.items():
+                if not val.disabled and (val.dim in mslice.dims):
+                    mslice = mslice[val.dim, val.value]
+            mask_array = np.where(mslice.values, self.yrange[1], self.yrange[0])
+            self.fig.update_traces(y=mask_array, selector={"name": "masks"})
+
+            # z=self.transpose_log(array, transp, self.cb["log"]),
+            # selector=selector
+
+            # self.fig.data[i].y = vslice.values
         return
 
     def update_histograms(self):
@@ -192,7 +224,10 @@ class Slicer1d(Slicer):
                 trace["mode"] = "lines"
             else:
                 trace["line"] = None
-                trace["fill"] = None
+                if trace["name"] == "masks":
+                    trace["fill"] = "toself"
+                else:
+                    trace["fill"] = None
                 trace["mode"] = None
         return
 

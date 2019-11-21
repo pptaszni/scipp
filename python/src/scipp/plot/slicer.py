@@ -18,6 +18,7 @@ class Slicer:
         if self.show_variances:
             self.show_variances = (self.input_data.variances is not None)
         self.show_masks = False
+        print(masks, len(masks))
         if masks is not None:
             self.show_masks = len(masks) > 0
         self.cb = cb

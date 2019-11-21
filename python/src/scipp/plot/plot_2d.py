@@ -9,7 +9,6 @@ from .slicer import Slicer
 from .tools import axis_label, parse_colorbar
 from .._scipp.core import combine_masks, Variable
 
-
 # Other imports
 import numpy as np
 import ipywidgets as widgets
