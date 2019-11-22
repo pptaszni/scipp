@@ -6,7 +6,7 @@
 from ..config import plot as config
 from .render import render_plot
 from .slicer import Slicer
-from .tools import axis_label
+from .tools import axis_label, edges_to_centers
 from .._scipp.core import combine_masks
 
 # Other imports
@@ -85,7 +85,7 @@ class Slicer1d(Slicer):
 
     def __init__(self, data=None, layout=None, input_data=None, axes=None,
                  color=None, show_masks=False, masks=None,
-                  mask_color="#000000"):
+                  mask_color=None):
 
         super().__init__(input_data=input_data, axes=axes, masks=masks,
                          button_options=['X'])
@@ -94,7 +94,7 @@ class Slicer1d(Slicer):
         self.fig = go.FigureWidget(layout=layout)
 
         self.traces = dict()
-        trace = dict(type="scattergl")
+        trace = dict(type="scattergl", mode="markers")
         for i, (name, var) in enumerate(sorted(self.input_data)):
             trace["name"] = name
             if color is not None:
@@ -105,8 +105,11 @@ class Slicer1d(Slicer):
         self.mask = None
         if self.show_masks:
             self.mask = combine_masks(masks)
-            trace = dict(name="masks", type="scattergl", fill="toself",
-                         mode="none", marker={"color": mask_color})
+            print(mask_color)
+            mask_color = "#000000" if mask_color is None else mask_color
+            trace = dict(name="masks", type="scattergl",
+                         mode="markers", marker_color=mask_color, line_width=0,
+                         line_shape="hvh", hoverinfo="none")
             self.fig.add_trace(trace)
         print(self.show_masks)
         print(self.mask)
@@ -199,12 +202,14 @@ class Slicer1d(Slicer):
             self.fig.data[i].y = vslice.values
             if var.variances is not None:
                 self.fig.data[i]["error_y"].array = np.sqrt(vslice.variances)
+            
         if self.show_masks:
             mslice = self.mask
             # Slice along dimensions with active sliders
             for key, val in self.slider.items():
                 if not val.disabled and (val.dim in mslice.dims):
                     mslice = mslice[val.dim, val.value]
+            # mask_array = np.where(mslice.values, self.yrange[1], self.yrange[0])
             mask_array = np.where(mslice.values, self.yrange[1], self.yrange[0])
             self.fig.update_traces(y=mask_array, selector={"name": "masks"})
 
@@ -218,17 +223,15 @@ class Slicer1d(Slicer):
         for i in range(len(self.fig.data)):
             trace = self.fig.data[i]
             if len(trace.x) == len(trace.y) + 1:
+                trace["x"] = edges_to_centers(trace["x"])
+                # if trace["name"] != "masks":
                 trace["line"] = {"shape": "hvh"}
-                trace["x"] = 0.5 * (trace["x"][:-1] + trace["x"][1:])
                 trace["fill"] = "tozeroy"
                 trace["mode"] = "lines"
             else:
                 trace["line"] = None
-                if trace["name"] == "masks":
-                    trace["fill"] = "toself"
-                else:
-                    trace["fill"] = None
-                trace["mode"] = None
+                trace["fill"] = None
+                trace["mode"] = "markers"
         return
 
     def keep_remove_trace(self, owner):
