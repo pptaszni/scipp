@@ -108,6 +108,7 @@ class Slicer2d(Slicer):
         super().__init__(input_data=input_data, axes=axes,
                          value_name=value_name, cb=cb,
                          show_variances=show_variances, masks=masks,
+                         show_masks=show_masks,
                          button_options=['X', 'Y'])
 
         self.surface3d = surface3d
@@ -222,15 +223,15 @@ class Slicer2d(Slicer):
         self.update_axes()
         self.update_slice(None)
         self.vbox = [self.fig] + self.vbox
-        if self.show_masks:
-            masks_button = widgets.ToggleButton(
-                          value=show_masks,
-                          description="Hide masks" if show_masks else "Show masks",
-                          disabled=False,
-                          button_style=""
-                          )
-            masks_button.observe(self.hide_show_masks, names="value")
-            self.vbox += [masks_button]
+        # if self.show_masks:
+        #     masks_button = widgets.ToggleButton(
+        #                   value=show_masks,
+        #                   description="Hide masks" if show_masks else "Show masks",
+        #                   disabled=False,
+        #                   button_style=""
+        #                   )
+        #     masks_button.observe(self.hide_show_masks, names="value")
+        #     self.vbox += [masks_button]
         self.vbox = widgets.VBox(self.vbox)
         self.vbox.layout.align_items = 'center'
 

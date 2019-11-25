@@ -22,6 +22,14 @@ def plot_1d(input_data, logx=False, logy=False, logxy=False,
     made.
     """
 
+#     # create valid markers from mpl.markers
+# valid_markers = ([item[0] for item in mpl.markers.MarkerStyle.markers.items() if
+# item[1] is not 'nothing' and not item[1].startswith('tick') and not item[1].startswith('caret')])
+ 
+# # valid_markers = mpl.markers.MarkerStyle.filled_markers
+ 
+# markers = np.random.choice(valid_markers, df.shape[1], replace=False)
+
     fig = None
     if mpl_axes is not None:
         ax = mpl_axes

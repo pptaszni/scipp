@@ -9,7 +9,8 @@ from .._scipp.core.units import dimensionless
 class Slicer:
 
     def __init__(self, input_data=None, axes=None, value_name=None, cb=None,
-                 show_variances=False, masks=None, button_options=None):
+                 show_variances=False, masks=None, show_masks=False,
+                 button_options=None):
 
         import ipywidgets as widgets
 
@@ -139,6 +140,15 @@ class Slicer:
                 row += [widgets.HTML(value="&nbsp;&nbsp;&nbsp;&nbsp;"),
                         self.showhide[key]]
             self.vbox.append(widgets.HBox(row))
+
+        if self.show_masks:
+            masks_button = widgets.ToggleButton(
+                value=show_masks,
+                description="Hide masks" if show_masks else "Show masks",
+                disabled=False, button_style="")
+            masks_button.observe(self.hide_show_masks, names="value")
+            self.vbox += [masks_button]
+
         return
 
     def make_slider_label(self, var, indx):
