@@ -118,6 +118,8 @@ class Slicer1d(Slicer):
             trace["marker"] = {"symbol": symbol}
             if color is not None:
                 trace["marker"]["color"] = color[i]
+            if var.variances is not None:
+                trace["error_y"] = {"type": "data"}
             self.traces[name] = counter
             counter += 1
             self.fig.add_trace(trace)
@@ -240,7 +242,7 @@ class Slicer1d(Slicer):
                     vslice = vslice[val.dim, val.value]
             self.fig.data[self.traces[name]].y = vslice.values
             if var.variances is not None:
-                self.fig.data[self.traces[name]]["error_y"].array = np.sqrt(vslice.variances)
+                self.fig.data[self.traces[name]]["error_y"]["array"] = np.sqrt(vslice.variances)
             if self.show_masks:
                 # np.where(mslice.values, vslice.values, None)
                 # print(self.mask_traces[name])
