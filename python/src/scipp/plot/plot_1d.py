@@ -17,7 +17,7 @@ import ipywidgets as widgets
 
 def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
             color=None, filename=None, axes=None, show_masks=True,
-            mask_color=None):
+            mask_color=None, with_lines=True):
     """
     Plot a 1D spectrum.
 
@@ -35,7 +35,7 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
     masks = input_data.masks
     print("here", masks)
 
-    data = []
+    # data = []
     for i, (name, var) in enumerate(sorted(input_data)):
 
         ax = var.dims
@@ -47,11 +47,11 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
         ymin = min(ymin, np.nanmin(var.values - err))
         ymax = max(ymax, np.nanmax(var.values + err))
 
-        # Define trace
-        trace = dict(name=name, type="scattergl")
-        if color is not None:
-            trace["marker"] = {"color": color[i]}
-        data.append(trace)
+        # # Define trace
+        # trace = dict(name=name, type="scatter")
+        # if color is not None:
+        #     trace["marker"] = {"color": color[i]}
+        # data.append(trace)
 
     if axes is None:
         axes = ax
@@ -72,9 +72,9 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
     dy = 0.05*(ymax - ymin)
     layout["yaxis"]["range"] = [ymin-dy, ymax+dy]
 
-    sv = Slicer1d(data=data, layout=layout, input_data=input_data, axes=axes,
+    sv = Slicer1d(layout=layout, input_data=input_data, axes=axes,
                   color=color, show_masks=show_masks, masks=masks,
-                  mask_color=mask_color)
+                  mask_color=mask_color, with_lines=with_lines)
     render_plot(static_fig=sv.fig, interactive_fig=sv.box, backend=backend,
                 filename=filename)
 
@@ -83,16 +83,19 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
 
 class Slicer1d(Slicer):
 
-    def __init__(self, data=None, layout=None, input_data=None, axes=None,
+    def __init__(self, layout=None, input_data=None, axes=None,
                  color=None, show_masks=False, masks=None,
-                  mask_color=None):
+                 mask_color=None, with_lines=False):
 
         super().__init__(input_data=input_data, axes=axes, masks=masks,
-                         button_options=['X'])
+                         show_masks=show_masks, button_options=['X'])
 
         self.color = color
         self.fig = go.FigureWidget(layout=layout)
         self.trace_count = 0
+        self.mode = "markers"
+        if with_lines:
+            self.mode = None
 
         self.mask = None
         if self.show_masks:
@@ -100,16 +103,15 @@ class Slicer1d(Slicer):
             print(mask_color)
             mask_color = "#000000" if mask_color is None else mask_color
             mask_trace = dict(text="mask", type="scattergl", mode="markers",
-                              marker=dict(line=dict(width=2,
-                                                    color=mask_color),
-                                          size=8, color="rgba(0,0,0,0)"),
+                              marker=dict(line=dict(width=3, color=mask_color),
+                                          size=9, color="rgba(0,0,0,0)"),
                               hoverinfo="none",
                               showlegend=False,
                               meta="mask")
 
         self.traces = dict()
         self.mask_traces = dict()
-        trace = dict(type="scattergl", mode="markers", meta="data")
+        trace = dict(type="scattergl", mode=self.mode, meta="data")
         counter = 0
         for i, (name, var) in enumerate(sorted(self.input_data)):
             symbol = self.trace_count
@@ -271,15 +273,20 @@ class Slicer1d(Slicer):
             trace = self.fig.data[i]
             # print(trace)
             if len(trace.x) == len(trace.y) + 1:
-                trace["x"] = edges_to_centers(trace["x"])
+                print(len(trace.x), len(trace.y))
+                # trace["x"] = edges_to_centers(trace["x"])
                 # if trace["name"] != "masks":
-                trace["line"] = {"shape": "hvh"}
+                trace["line"] = {"shape": "vh"}
                 trace["fill"] = "tozeroy"
                 trace["mode"] = "lines"
+                trace["y"] = np.concatenate((trace["y"], [0.0]))
             else:
                 trace["line"] = None
                 trace["fill"] = None
-                trace["mode"] = "markers"
+                if trace["meta"] == "mask":
+                    trace["mode"] = "markers"
+                else:
+                    trace["mode"] = self.mode
         return
 
     def keep_remove_trace(self, owner):
