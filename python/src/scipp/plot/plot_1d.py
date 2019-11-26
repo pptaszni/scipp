@@ -17,7 +17,7 @@ import ipywidgets as widgets
 
 def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
             color=None, filename=None, axes=None, show_masks=True,
-            mask_color=None, with_lines=True):
+            mask_color=None, with_lines=True, use_gl=True):
     """
     Plot a 1D spectrum.
 
@@ -74,7 +74,7 @@ def plot_1d(input_data, backend=None, logx=False, logy=False, logxy=False,
 
     sv = Slicer1d(layout=layout, input_data=input_data, axes=axes,
                   color=color, show_masks=show_masks, masks=masks,
-                  mask_color=mask_color, with_lines=with_lines)
+                  mask_color=mask_color, with_lines=with_lines, use_gl=use_gl)
     render_plot(static_fig=sv.fig, interactive_fig=sv.box, backend=backend,
                 filename=filename)
 
@@ -85,7 +85,7 @@ class Slicer1d(Slicer):
 
     def __init__(self, layout=None, input_data=None, axes=None,
                  color=None, show_masks=False, masks=None,
-                 mask_color=None, with_lines=False):
+                 mask_color=None, with_lines=False, use_gl=True):
 
         super().__init__(input_data=input_data, axes=axes, masks=masks,
                          show_masks=show_masks, button_options=['X'])
@@ -96,13 +96,16 @@ class Slicer1d(Slicer):
         self.mode = "markers"
         if with_lines:
             self.mode = None
+        plottype = "scatter"
+        if use_gl:
+            plottype += "gl"
 
         self.mask = None
         if self.show_masks:
             self.mask = combine_masks(masks)
             print(mask_color)
             mask_color = "#000000" if mask_color is None else mask_color
-            mask_trace = dict(text="mask", type="scattergl", mode="markers",
+            mask_trace = dict(text="mask", type=plottype, mode="markers",
                               marker=dict(line=dict(width=3, color=mask_color),
                                           size=9, color="rgba(0,0,0,0)"),
                               hoverinfo="none",
@@ -111,7 +114,7 @@ class Slicer1d(Slicer):
 
         self.traces = dict()
         self.mask_traces = dict()
-        trace = dict(type="scattergl", mode=self.mode, meta="data")
+        trace = dict(type=plottype, mode=self.mode, meta="data")
         counter = 0
         for i, (name, var) in enumerate(sorted(self.input_data)):
             symbol = self.trace_count
@@ -249,7 +252,7 @@ class Slicer1d(Slicer):
                 # np.where(mslice.values, vslice.values, None)
                 # print(self.mask_traces[name])
                 # print(self.fig.data[self.mask_traces[name]].y)
-                self.fig.data[self.mask_traces[name]].y = np.where(mslice.values, vslice.values, None)
+                self.fig.data[self.mask_traces[name]].y = np.where(mslice.values, vslice.values, 0)
 
             
         # if self.show_masks:
@@ -274,12 +277,12 @@ class Slicer1d(Slicer):
             # print(trace)
             if len(trace.x) == len(trace.y) + 1:
                 print(len(trace.x), len(trace.y))
-                # trace["x"] = edges_to_centers(trace["x"])
+                trace["x"] = np.concatenate((2.0*trace["x"][0]-trace["x"][1], edges_to_centers(trace["x"], 2.0*trace["x"][-1]-trace["x"][-2])
                 # if trace["name"] != "masks":
-                trace["line"] = {"shape": "vh"}
+                trace["line"] = {"shape": "hvh"}
                 trace["fill"] = "tozeroy"
                 trace["mode"] = "lines"
-                trace["y"] = np.concatenate((trace["y"], [0.0]))
+                # trace["y"] = np.concatenate((trace["y"], [0.0]))
             else:
                 trace["line"] = None
                 trace["fill"] = None
