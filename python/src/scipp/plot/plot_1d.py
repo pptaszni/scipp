@@ -276,8 +276,11 @@ class Slicer1d(Slicer):
             trace = self.fig.data[i]
             # print(trace)
             if len(trace.x) == len(trace.y) + 1:
-                print(len(trace.x), len(trace.y))
-                trace["x"] = np.concatenate((2.0*trace["x"][0]-trace["x"][1], edges_to_centers(trace["x"], 2.0*trace["x"][-1]-trace["x"][-2])
+                # print(len(trace.x), len(trace.y))
+                # trace["x"] = np.concatenate((2.0*trace["x"][0]-trace["x"][1],
+                #                              edges_to_centers(trace["x"]),
+                #                              2.0*trace["x"][-1]-trace["x"][-2]))
+                trace["x"] = edges_to_centers(trace["x"])
                 # if trace["name"] != "masks":
                 trace["line"] = {"shape": "hvh"}
                 trace["fill"] = "tozeroy"
