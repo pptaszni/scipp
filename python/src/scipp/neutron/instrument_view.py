@@ -23,6 +23,7 @@ except ImportError:
 import IPython.display as disp
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
+import matplotlib.transforms as transforms
 
 
 def instrument_view(scipp_obj=None, bins=None, masks=None, filename=None,
@@ -486,6 +487,6 @@ class InstrumentView:
         if self.current_projection == "3D":
             self.scatter3d.size = 100.0 * self.size / self.box_size["max"]
         else:
-            pass
+            self.scatter2d.set_transform(transforms.Affine2D().scale(change["new"]/change["old"]))
         return
 
