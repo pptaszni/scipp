@@ -101,6 +101,11 @@ class InstrumentView:
         for i, x in enumerate("xyz"):
             self.minmax[x] = [np.amin(self.det_pos[:, i]),
                               np.amax(self.det_pos[:, i])]
+        # self.box_size = 0.0
+        self.box_size = {"x": 0, "y": 0, "z": 0}
+        for ax in self.box_size.keys():
+            self.box_size[ax] = np.ediff1d(self.minmax[ax])
+        self.box_size["max"] = np.amax(list(self.box_size.values()))
 
         self.globs = {"cmap": cmap, "log": log, "vmin": vmin, "vmax": vmax}
         self.params = {}
@@ -151,10 +156,15 @@ class InstrumentView:
         self.label = widgets.Label()
 
         # Add text boxes to change number of bins/bin size
+        # Here we use the generic Text widget as opposed to IntText and
+        # FloatTextbecause it provides the 'on_submit' method which allows us
+        # to modify the value of the bin width according to the number of bins
+        # and vice versa without executing the rebinning twice, which would
+        # happen with 'observe' since any change of value triggers the rebin.
         self.nbins = widgets.Text(
             value=str(self.hist_data_array[self.key].shape[self.tof_dim_indx]),
             description="Number of bins:",
-            style={"description_width": "initial"})
+            style={"description_width": "initial", "width": "70px"})
         self.nbins.on_submit(self.update_nbins)
 
         tof_values = self.hist_data_array[self.key].coords[self.dim].values
@@ -162,6 +172,11 @@ class InstrumentView:
             value=str(tof_values[1] - tof_values[0]),
             description="Bin size:")
         self.bin_size.on_submit(self.update_bin_size)
+
+        self.detector_size = widgets.FloatText(
+            value=self.size, description="Detector size",
+            style={"description_width": "initial", "width": "70px"})
+        self.detector_size.observe(self.change_detector_size, names="value")
 
         projections = ["3D", "Cylindrical X", "Cylindrical Y", "Cylindrical Z",
                        "Spherical X", "Spherical Y", "Spherical Z"]
@@ -187,7 +202,7 @@ class InstrumentView:
         # Place widgets in boxes
         self.vbox = widgets.VBox(
             [widgets.HBox([self.dropdown, self.slider, self.label]),
-             widgets.HBox([self.nbins, self.bin_size]),
+             widgets.HBox([self.nbins, self.bin_size, self.detector_size]),
              self.togglebuttons])
         self.box = widgets.VBox([self.figurewidget, self.vbox])
         self.box.layout.align_items = "center"
@@ -303,16 +318,16 @@ class InstrumentView:
         if not self.figure3d:
             self.fig3d = ipv.figure(width=config.width, height=config.height,
                                     animation=0, lighting=False)
-            max_size = 0.0
-            dx = {"x": 0, "y": 0, "z": 0}
-            for ax in dx.keys():
-                dx[ax] = np.ediff1d(self.minmax[ax])
-            max_size = np.amax(list(dx.values()))
+            # max_size = 0.0
+            # dx = {"x": 0, "y": 0, "z": 0}
+            # for ax in dx.keys():
+            #     dx[ax] = np.ediff1d(self.minmax[ax])
+            # max_size = np.amax(list(dx.values()))
             # Make plot outline if aspect ratio is to be conserved
             if self.aspect == "equal":
-                arrays = dict()
-                for ax, s in dx.items():
-                    diff = max_size - s
+                arrays = {}
+                for ax in "xyz":
+                    diff = self.box_size["max"] - self.box_size[ax]
                     arrays[ax] = [self.minmax[ax][0] - 0.5 * diff,
                                   self.minmax[ax][1] + 0.5 * diff]
 
@@ -322,7 +337,7 @@ class InstrumentView:
                 self.outline = ipv.plot_wireframe(outl_x, outl_y, outl_z,
                                                   color="black")
             # Try to guess marker size
-            perc_size = 100.0 * self.size / max_size
+            perc_size = 100.0 * self.size / self.box_size["max"]
             self.scatter3d = ipv.scatter(x=self.det_pos[:, 0],
                                          y=self.det_pos[:, 1],
                                          z=self.det_pos[:, 2],
@@ -465,3 +480,12 @@ class InstrumentView:
             self.cbar.set_clim(vmin=self.params[self.key]["vmin"],
                                vmax=self.params[self.key]["vmax"])
         self.update_colors({"new": self.slider.value})
+
+    def change_detector_size(self, change):
+        self.size = change["new"]
+        if self.current_projection == "3D":
+            self.scatter3d.size = 100.0 * self.size / self.box_size["max"]
+        else:
+            pass
+        return
+
