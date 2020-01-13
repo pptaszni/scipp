@@ -39,6 +39,9 @@ class _Plot:
         # Default line style for 1D non-histogram plots
         self.linestyle = ["none"]
 
+        #
+        self.max_plot_size = 100000
+
 
 class _Colors:
 

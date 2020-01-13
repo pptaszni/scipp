@@ -220,7 +220,7 @@ class Slicer1d(Slicer):
                     [self.members["masks"][name]] = self.ax.plot(
                         new_x,
                         self.mask_to_float(mslice.values, vslice.values),
-                        zorder=10, mec=self.params["masks"]["color"], mew=3,
+                        zorder=9, mec=self.params["masks"]["color"], mew=3,
                         linestyle="none",
                         **{key: self.mpl_line_params[key][i] for key in
                            ["color", "marker"]})

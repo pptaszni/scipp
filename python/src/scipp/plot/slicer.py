@@ -11,6 +11,7 @@ from .._scipp.core import combine_masks, Variable, Dim, dtype
 # Other imports
 import numpy as np
 import matplotlib.ticker as ticker
+import math
 
 
 class Slicer:
@@ -18,7 +19,7 @@ class Slicer:
     def __init__(self, scipp_obj_dict=None, data_array=None, axes=None,
                  values=None, variances=None, masks=None, cmap=None, log=None,
                  vmin=None, vmax=None, color=None, button_options=None,
-                 volume=False, aspect=None):
+                 volume=False, aspect=None, max_plot_size=512):
 
         import ipywidgets as widgets
 
@@ -26,6 +27,11 @@ class Slicer:
         if self.scipp_obj_dict is None:
             self.scipp_obj_dict = {data_array.name: data_array}
         self.data_array = data_array
+
+        if max_plot_size is None:
+            self.max_plot_size = config.max_plot_size
+        else:
+            self.max_plot_size = max_plot_size
 
         # Member container for dict output
         self.members = dict(widgets=dict(sliders=dict(), togglebuttons=dict(),
@@ -201,6 +207,8 @@ class Slicer:
             self.members["widgets"]["togglebutton"]["masks"] = \
                 self.masks_button
 
+
+
         return
 
     def make_slider_label(self, var, indx):
@@ -270,3 +278,19 @@ class Slicer:
                 new_ticks[i] = self.slider_ticks[dim]["formatter"](
                     self.slider_ticks[dim]["coord"].values[int(x)])
         return new_ticks
+
+    def make_zoom_layers(self):
+        # Construct layers for zooming
+        data_size = 1
+        ndims = 0
+        self.nlayers = np.Inf
+        for dim, sl in self.slider.items():
+            if sl.disabled:
+                self.nlayers = min(self.nlayers, int(math.log(self.shapes[dim] / self.max_plot_size) / math.log(2.0)))
+        #     if self.shapes[dim]
+        #     if sl.disabled:
+        #         data_size *= self.shapes[dim]
+        #         ndims += 1
+        # nlayers = min(10, (data_size / config.max_plot_size)**(1.0/ndims))
+        print("nlayers", self.nlayers)
+
