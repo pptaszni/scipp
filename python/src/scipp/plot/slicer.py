@@ -74,6 +74,9 @@ class Slicer:
         self.slider_nx = dict()
         # Store coordinates of dimensions that will be in sliders
         self.slider_x = dict()
+
+        self.slider_coord = dict()
+        
         # Store ticklabels for a dimension
         self.slider_ticks = dict()
         # Store labels for sliders if any
@@ -92,16 +95,16 @@ class Slicer:
                 raise RuntimeError("The dimension of the labels cannot also "
                                    "be specified as another axis.")
             self.slider_labels[dim] = lab
-            self.slider_x[dim] = var
+            self.slider_coord[dim] = var
             self.slider_ticks[dim] = ticks
-            self.slider_nx[dim] = self.shapes[dim]
-        self.ndim = len(self.slider_nx)
+            # self.slider_nx[dim] = self.shapes[dim]
+        self.ndim = len(self.slider_coord)
 
         # Save information on histograms
         self.histograms = dict()
         for name, var in self.scipp_obj_dict.items():
             self.histograms[name] = dict()
-            for dim, x in self.slider_x.items():
+            for dim, x in self.slider_coord.items():
                 indx = var.dims.index(dim)
                 self.histograms[name][dim] = var.shape[indx] == x.shape[0] - 1
 
@@ -120,11 +123,11 @@ class Slicer:
         # Now begin loop to construct sliders
         button_values = [None] * (self.ndim - len(button_options)) + \
             button_options[::-1]
-        for i, dim in enumerate(self.slider_x.keys()):
+        for i, dim in enumerate(self.slider_coord.keys()):
             key = str(dim)
             # If this is a 3d projection, place slices half-way
             if len(button_options) == 3 and (not volume):
-                indx = (self.slider_nx[dim] - 1) // 2
+                indx = (self.shapes[dim] - 1) // 2
             if self.slider_labels[dim] is not None:
                 descr = self.slider_labels[dim]
             else:
@@ -133,14 +136,14 @@ class Slicer:
             self.slider[dim] = widgets.IntSlider(
                 value=indx,
                 min=0,
-                max=self.slider_nx[dim] - 1,
+                max=self.shapes[dim] - 1,
                 step=1,
                 description=descr,
                 continuous_update=True,
                 readout=False,
                 disabled=((i >= self.ndim-len(button_options)) and
                           ((len(button_options) < 3) or volume)))
-            labvalue = self.make_slider_label(self.slider_x[dim], indx)
+            labvalue = self.make_slider_label(self.slider_coord[dim], indx)
             if self.ndim == len(button_options):
                 self.slider[dim].layout.display = 'none'
                 labvalue = descr
@@ -274,7 +277,7 @@ class Slicer:
             xticks = getticks()
         new_ticks = [""] * len(xticks)
         for i, x in enumerate(xticks):
-            if x >= 0 and x < self.slider_nx[dim]:
+            if x >= 0 and x < self.shapes[dim]:
                 new_ticks[i] = self.slider_ticks[dim]["formatter"](
                     self.slider_ticks[dim]["coord"].values[int(x)])
         return new_ticks
@@ -283,14 +286,20 @@ class Slicer:
         # Construct layers for zooming
         data_size = 1
         ndims = 0
-        self.nlayers = np.Inf
+        nlays = []
+        # self.nlayers = np.Inf
         for dim, sl in self.slider.items():
             if sl.disabled:
-                self.nlayers = min(self.nlayers, int(math.log(self.shapes[dim] / self.max_plot_size) / math.log(2.0)))
+                nlays.append(int(math.log(self.shapes[dim] / self.max_plot_size) / math.log(2.0)))
+            else:
+                step = int(self.shapes[dim] / self.max_plot_size)
+                self.slider_x[dim] = self.slider_coord[dim][dim, 
+
         #     if self.shapes[dim]
         #     if sl.disabled:
         #         data_size *= self.shapes[dim]
         #         ndims += 1
         # nlayers = min(10, (data_size / config.max_plot_size)**(1.0/ndims))
+        self.nlayers = min(nlays)
         print("nlayers", self.nlayers)
 
