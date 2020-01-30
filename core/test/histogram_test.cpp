@@ -6,6 +6,7 @@
 
 #include "scipp/core/dataset.h"
 #include "scipp/core/histogram.h"
+#include "scipp/common/numeric.h"
 
 using namespace scipp;
 using namespace scipp::core;
@@ -190,4 +191,11 @@ TEST(HistogramTest, dataset_own_coord) {
 
   sparse.setCoord(Dim::Y, coord);
   EXPECT_EQ(core::histogram(sparse, Dim::Y), expected);
+}
+
+
+TEST(HistogramTest, linspace) {
+  auto var = makeVariable<double>(Dims{Dim::X}, Shape{6},
+                                             Values{1, 2, 3, 4, 5, 6});
+  EXPECT_TRUE(numeric::is_linspace(var));
 }
