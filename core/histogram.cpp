@@ -57,6 +57,19 @@ static constexpr auto make_histogram_from_weighted =
             data.variance[b] += e;
           }
         }
+      } else if (scipp::numeric::is_logspace(edges)) {
+        const auto [offset, nbin, scale] = log_edge_params(edges);
+        for (scipp::index i = 0; i < scipp::size(events); ++i) {
+          const auto x = std::log(events[i]);
+          const double bin = (x - offset) * scale;
+          if (bin >= 0.0 && bin < nbin) {
+            const auto b = static_cast<scipp::index>(bin);
+            const auto w = weights.values[i];
+            const auto e = weights.variances[i];
+            data.value[b] += w;
+            data.variance[b] += e;
+          }
+        }
       } else {
         expect::histogram::sorted_edges(edges);
         for (scipp::index i = 0; i < scipp::size(events); ++i) {

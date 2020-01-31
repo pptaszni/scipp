@@ -21,7 +21,7 @@ constexpr static auto linear_edge_params = [](const auto &edges) {
   const auto offset = edges.front();
   static_assert(
       std::is_floating_point_v<decltype(offset)>,
-      "linear_bin_edges is not implement to support integer-valued bin-edges");
+      "linear_bin_edges is not implemented to support integer-valued bin-edges");
   const auto nbin = static_cast<decltype(offset)>(len);
   const auto scale = nbin / (edges.back() - edges.front());
   return std::array{offset, nbin, scale};
@@ -34,7 +34,7 @@ constexpr static auto log_edge_params = [](const auto &edges) {
   const auto offset = std::log(edges.front());
   static_assert(
       std::is_floating_point_v<decltype(offset)>,
-      "log_bin_edges is not implement to support integer-valued bin-edges");
+      "log_bin_edges is not implemented to support integer-valued bin-edges");
   const auto nbin = static_cast<decltype(offset)>(len);
   const decltype(offset) scale =
       1.0 / std::log(numeric::geometric_ratio(edges));

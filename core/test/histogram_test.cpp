@@ -198,10 +198,36 @@ TEST(HistogramTest, log_bins) {
   const auto sparse = make_single_sparse();
   auto edges = makeVariable<double>(Dims{Dim::X}, Shape{4}, Values{1, 2, 4, 8});
   auto hist = core::histogram(sparse["sparse"], edges);
-
+  EXPECT_TRUE(numeric::is_logspace(edges.values<double>()));
   auto expected = make_expected(
       makeVariable<double>(Dims{Dim::X}, Shape{3}, units::Unit(units::counts),
                            Values{3, 4, 0}, Variances{3, 4, 0}),
       edges);
   EXPECT_EQ(hist, expected);
+}
+
+TEST(HistogramTest, log_bins_with_data) {
+  auto sparse = make_2d_sparse_coord_only("sparse");
+  Variable data = makeVariable<double>(
+      Dimensions{{Dim::X, 3}, {Dim::Y, Dimensions::Sparse}}, Values{},
+      Variances{});
+  data.sparseValues<double>()[0] = {1, 1, 1, 2, 2};
+  data.sparseValues<double>()[1] = {2, 2, 2, 2, 2};
+  data.sparseValues<double>()[2] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  data.sparseVariances<double>()[0] = {1, 1, 1, 2, 2};
+  data.sparseVariances<double>()[1] = {2, 2, 2, 2, 2};
+  data.sparseVariances<double>()[2] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+  data.setUnit(units::counts);
+  sparse.setData("sparse", data);
+  auto edges = makeVariable<double>(
+      Dims{Dim::Y}, Shape{6}, Values{1.0, 1.5, 2.25, 3.375, 5.0625, 7.59375});
+  EXPECT_TRUE(numeric::is_logspace(edges.values<double>()));
+  std::vector<double> ref{0, 1, 1, 3, 2, 0, 0, 0, 4, 6, 2, 3, 0, 3, 1};
+  auto expected =
+      make_expected(makeVariable<double>(Dims{Dim::X, Dim::Y}, Shape{3, 5},
+                                         units::Unit(units::counts),
+                                         Values(ref.begin(), ref.end()),
+                                         Variances(ref.begin(), ref.end())),
+                    edges);
+  EXPECT_EQ(core::histogram(sparse["sparse"], edges), expected);
 }

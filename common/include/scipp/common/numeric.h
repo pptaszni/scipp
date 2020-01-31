@@ -24,8 +24,6 @@ template <class Range> bool is_linspace(const Range &range) {
   constexpr int32_t ulp = 4;
   const T epsilon =
       std::numeric_limits<T>::epsilon() * (range.front() + range.back()) * ulp;
-  // std::cout << "Epsilon is: " << std::numeric_limits<T>::epsilon() <<
-  // std::endl;
 
   return std::adjacent_find(range.begin(), range.end(),
                             [epsilon, delta](const auto &a, const auto &b) {
