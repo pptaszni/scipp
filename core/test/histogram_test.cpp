@@ -4,9 +4,9 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include "scipp/common/numeric.h"
 #include "scipp/core/dataset.h"
 #include "scipp/core/histogram.h"
-#include "scipp/common/numeric.h"
 
 using namespace scipp;
 using namespace scipp::core;
@@ -69,7 +69,8 @@ auto make_single_sparse() {
   Dataset sparse;
   sparse.setSparseCoord(
       "sparse", makeVariable<double>(Dims{Dim::X}, Shape{Dimensions::Sparse}));
-  sparse["sparse"].coords()[Dim::X].sparseValues<double>()[0] = {0, 1, 1, 2, 3};
+  sparse["sparse"].coords()[Dim::X].sparseValues<double>()[0] = {
+      0, 1, 1, 2, 3, 2.1, 2.8, 1.9};
   return sparse;
 }
 
@@ -193,10 +194,14 @@ TEST(HistogramTest, dataset_own_coord) {
   EXPECT_EQ(core::histogram(sparse, Dim::Y), expected);
 }
 
+TEST(HistogramTest, log_bins) {
+  const auto sparse = make_single_sparse();
+  auto edges = makeVariable<double>(Dims{Dim::X}, Shape{4}, Values{1, 2, 4, 8});
+  auto hist = core::histogram(sparse["sparse"], edges);
 
-TEST(HistogramTest, linspace) {
-  // auto var = makeVariable<double>(Dims{Dim::X}, Shape{6},
-  //                                            Values{1, 2, 3, 4, 5, 6});
-  std::vector var{1, 2, 3, 4, 5, 7};
-  EXPECT_TRUE(numeric::is_linspace(var));
+  auto expected = make_expected(
+      makeVariable<double>(Dims{Dim::X}, Shape{3}, units::Unit(units::counts),
+                           Values{3, 4, 0}, Variances{3, 4, 0}),
+      edges);
+  EXPECT_EQ(hist, expected);
 }

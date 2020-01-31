@@ -23,6 +23,14 @@ static constexpr auto make_histogram = [](auto &data, const auto &events,
       if (bin >= 0.0 && bin < nbin)
         ++data.value[static_cast<scipp::index>(bin)];
     }
+  } else if (scipp::numeric::is_logspace(edges)) {
+    // Special implementation for log bins.
+    const auto [offset, nbin, scale] = log_edge_params(edges);
+    for (const auto &e : events) {
+      const double bin = (std::log(e) - offset) * scale;
+      if (bin >= 0.0 && bin < nbin)
+        ++data.value[static_cast<scipp::index>(bin)];
+    }
   } else {
     expect::histogram::sorted_edges(edges);
     for (const auto &e : events) {

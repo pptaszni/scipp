@@ -24,12 +24,20 @@ template <class Range> bool is_linspace(const Range &range) {
   constexpr int32_t ulp = 4;
   const T epsilon =
       std::numeric_limits<T>::epsilon() * (range.front() + range.back()) * ulp;
+  // std::cout << "Epsilon is: " << std::numeric_limits<T>::epsilon() <<
+  // std::endl;
 
   return std::adjacent_find(range.begin(), range.end(),
                             [epsilon, delta](const auto &a, const auto &b) {
                               return std::abs(std::abs(b - a) - delta) >
                                      epsilon;
                             }) == range.end();
+}
+
+/// Compute the ratio of a geometric sequence of numbers
+template <class Range> auto geometric_ratio(const Range &range) {
+  return std::exp(std::log(range.back() / range.front()) /
+                  (scipp::size(range) - 1));
 }
 
 template <class Range> bool is_logspace(const Range &range) {
@@ -39,10 +47,11 @@ template <class Range> bool is_logspace(const Range &range) {
     return false;
 
   using T = typename Range::value_type;
-  const T delta = (range.back() - range.front()) / (scipp::size(range) - 1);
+  if (range.front() == static_cast<T>(0.))
+    return false;
+  const T delta = geometric_ratio(range);
   constexpr int32_t ulp = 4;
-  const T epsilon =
-      std::numeric_limits<T>::epsilon() * (range.front() + range.back()) * ulp;
+  const T epsilon = std::numeric_limits<T>::epsilon() * delta * ulp;
 
   return std::adjacent_find(range.begin(), range.end(),
                             [epsilon, delta](const auto &a, const auto &b) {

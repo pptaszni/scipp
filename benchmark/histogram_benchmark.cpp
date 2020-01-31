@@ -64,6 +64,34 @@ static void BM_histogram(benchmark::State &state) {
   state.counters["sparse-with-data"] = data;
 }
 
+static void BM_histogram_log(benchmark::State &state) {
+  const scipp::index nEvent = state.range(0);
+  const scipp::index nEdge = state.range(1);
+  const scipp::index nHist = 1e7 / nEvent;
+  const bool linear = state.range(2);
+  const bool data = state.range(3);
+  const auto sparse = data ? make_2d_sparse(nHist, nEvent)
+                           : make_2d_sparse_coord_only(nHist, nEvent);
+  std::vector<double> edges_(nEdge);
+  // std::iota(edges_.begin(), edges_.end(), 0.0);
+  std::generate(edges_.begin(), edges_.end(),
+                [n = 1.0]() mutable { return 2.0 * n; });
+  if (!linear)
+    edges_.back() += 0.0001;
+  auto edges = makeVariable<double>(Dims{Dim::Y}, Shape{nEdge},
+                                    Values(edges_.begin(), edges_.end()));
+  edges *= 1000.0 / nEdge; // ensure all events are in range
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(histogram(sparse, edges));
+  }
+  state.SetItemsProcessed(state.iterations() * nHist * nEvent);
+  state.SetBytesProcessed(state.iterations() * nHist *
+                          ((data ? 3 : 1) * nEvent + 2 * (nEdge - 1)) *
+                          sizeof(double));
+  state.counters["const-width-bins"] = linear;
+  state.counters["sparse-with-data"] = data;
+}
+
 // Params are:
 // - nEvent
 // - nEdge
@@ -72,5 +100,9 @@ static void BM_histogram(benchmark::State &state) {
 BENCHMARK(BM_histogram)
     ->RangeMultiplier(2)
     ->Ranges({{64, 2 << 14}, {128, 2 << 11}, {false, true}, {false, true}});
+
+BENCHMARK(BM_histogram_log)
+    ->RangeMultiplier(2)
+    ->Ranges({{64, 2 << 14}, {128, 2 << 9}, {false, true}, {false, true}});
 
 BENCHMARK_MAIN();

@@ -6,7 +6,9 @@
 #define SCIPP_CORE_HISTOGRAM_H
 
 #include <algorithm>
+#include <cmath>
 
+#include "scipp/common/numeric.h"
 #include "scipp/core/except.h"
 
 namespace scipp::core {
@@ -22,6 +24,20 @@ constexpr static auto linear_edge_params = [](const auto &edges) {
       "linear_bin_edges is not implement to support integer-valued bin-edges");
   const auto nbin = static_cast<decltype(offset)>(len);
   const auto scale = nbin / (edges.back() - edges.front());
+  return std::array{offset, nbin, scale};
+};
+
+/// Return params for computing bin index for logarithmic edges (constant
+/// factor separating bin edges).
+constexpr static auto log_edge_params = [](const auto &edges) {
+  auto len = scipp::size(edges) - 1;
+  const auto offset = std::log(edges.front());
+  static_assert(
+      std::is_floating_point_v<decltype(offset)>,
+      "log_bin_edges is not implement to support integer-valued bin-edges");
+  const auto nbin = static_cast<decltype(offset)>(len);
+  const decltype(offset) scale =
+      1.0 / std::log(numeric::geometric_ratio(edges));
   return std::array{offset, nbin, scale};
 };
 
