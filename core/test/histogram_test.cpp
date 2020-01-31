@@ -195,7 +195,8 @@ TEST(HistogramTest, dataset_own_coord) {
 
 
 TEST(HistogramTest, linspace) {
-  auto var = makeVariable<double>(Dims{Dim::X}, Shape{6},
-                                             Values{1, 2, 3, 4, 5, 6});
+  // auto var = makeVariable<double>(Dims{Dim::X}, Shape{6},
+  //                                            Values{1, 2, 3, 4, 5, 6});
+  std::vector var{1, 2, 3, 4, 5, 7};
   EXPECT_TRUE(numeric::is_linspace(var));
 }

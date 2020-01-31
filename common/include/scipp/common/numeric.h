@@ -46,7 +46,7 @@ template <class Range> bool is_logspace(const Range &range) {
 
   return std::adjacent_find(range.begin(), range.end(),
                             [epsilon, delta](const auto &a, const auto &b) {
-                              return std::abs(std::abs(b - a) - delta) >
+                              return std::abs(std::abs(b / a) - delta) >
                                      epsilon;
                             }) == range.end();
 }
