@@ -29,15 +29,15 @@ static constexpr auto make_histogram = [](auto &data, const auto &events,
     // const std::vector<double> new_edges;
     // new_edges.reserve(5000);
     const int new_size = 5000;
-    std::vector<scipp::index> bin_number;
-    bin_number.reserve(new_size);
-    std::vector<bool> contains_edge;
-    contains_edge.reserve(new_size);
+    std::vector<scipp::index> bin_number(new_size, 0);
+    // bin_number.reserve(new_size);
+    std::vector<bool> contains_edge(new_size, false);
+    // contains_edge.reserve(new_size);
     const double front = edges.front();
     const auto dx = static_cast<double>(new_size) / (edges.back() - edges.front());
-    std::cout << "dx is " << dx << "," << edges.back() << "," << edges.front() << std::endl;
-    for (scipp::index i=0; i < new_size; i++)
-      contains_edge[i] = false;
+    // // std::cout << "dx is " << dx << "," << edges.back() << "," << edges.front() << std::endl;
+    // for (scipp::index i=0; i < new_size; i++)
+    //   contains_edge[i] = false;
     
     // std::generate(new_edges.begin(), new_edges.end(),
     //             [n = edges.front()]() mutable { n += dx ; return n; });
@@ -51,12 +51,12 @@ static constexpr auto make_histogram = [](auto &data, const auto &events,
       contains_edge[ix] = true;
     }
 
-    std::cout << "bin number " << std::endl;
-    for (scipp::index i=0; i < 10; i++)
-      std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
-    std::cout << "======= " << std::endl;
-    for (scipp::index i=new_size-10; i < new_size; i++)
-      std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
+    // std::cout << "bin number " << std::endl;
+    // for (scipp::index i=0; i < 10; i++)
+    //   std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
+    // std::cout << "======= " << std::endl;
+    // for (scipp::index i=new_size-10; i < new_size; i++)
+    //   std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
 
 
     // const auto [offset, nbin, scale] = linear_edge_params(edges);
@@ -68,12 +68,12 @@ static constexpr auto make_histogram = [](auto &data, const auto &events,
       //   bin--;
 
       if (bin >= 0 && bin < nbin){
-        if (contains_edge[ib])
-          std::cout << e << "," << ib << "," << bin << " This high res bin contains an edge " << edges[bin] << std::endl;
+        // if (contains_edge[ib])
+        //   std::cout << e << "," << ib << "," << bin << " This high res bin contains an edge " << edges[bin] << std::endl;
           
         if (contains_edge[ib] && e < edges[bin]) {
-          std::cout << "event " << e << "has bin number " << bin << " and bin index " << ib;
-          std::cout << ". The event is below the edge, so we decrease bin" << std::endl;
+          // std::cout << "event " << e << "has bin number " << bin << " and bin index " << ib;
+          // std::cout << ". The event is below the edge, so we decrease bin" << std::endl;
           --bin;
         }
         ++data.value[bin];
@@ -127,8 +127,7 @@ static constexpr auto make_histogram_from_weighted =
       } else if (scipp::numeric::is_logspace(edges)) {
         const auto [offset, nbin, scale] = log_edge_params(edges);
         for (scipp::index i = 0; i < scipp::size(events); ++i) {
-          // const auto x = std::log(events[i]);
-          const auto x = events[i];
+          const auto x = std::log(events[i]);
           const double bin = (x - offset) * scale;
           if (bin >= 0.0 && bin < nbin) {
             const auto b = static_cast<scipp::index>(bin);
