@@ -36,6 +36,8 @@ template <class Range> bool is_linspace(const Range &range) {
 template <class Range> auto geometric_ratio(const Range &range) {
   return std::exp(std::log(range.back() / range.front()) /
                   (scipp::size(range) - 1));
+  // return std::pow(range.back() / range.front(), 1.0 /
+  //                 (scipp::size(range) - 1));
 }
 
 template <class Range> bool is_logspace(const Range &range) {

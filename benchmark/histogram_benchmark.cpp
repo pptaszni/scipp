@@ -8,6 +8,7 @@
 #include "random.h"
 
 #include "scipp/core/dataset.h"
+#include <iostream>
 
 using namespace scipp;
 using namespace scipp::core;
@@ -75,9 +76,13 @@ static void BM_histogram_log(benchmark::State &state) {
   std::vector<double> edges_(nEdge);
   // std::iota(edges_.begin(), edges_.end(), 0.0);
   std::generate(edges_.begin(), edges_.end(),
-                [n = 1.0]() mutable { return 2.0 * n; });
+                [n = 1.0]() mutable { n *= 1.1 ; return n; });
+  // std::cout << "=======================" << std::endl;
+  // for (auto &x : edges_)
+    // std::cout << x <<",";
+  // std::cout << "=======================" << std::endl;
   if (!linear)
-    edges_.back() += 0.0001;
+    edges_.back() *= 1.2;
   auto edges = makeVariable<double>(Dims{Dim::Y}, Shape{nEdge},
                                     Values(edges_.begin(), edges_.end()));
   edges *= 1000.0 / nEdge; // ensure all events are in range
@@ -92,17 +97,22 @@ static void BM_histogram_log(benchmark::State &state) {
   state.counters["sparse-with-data"] = data;
 }
 
-// Params are:
-// - nEvent
-// - nEdge
-// - constant-width-bins
-// - sparse with data
-BENCHMARK(BM_histogram)
-    ->RangeMultiplier(2)
-    ->Ranges({{64, 2 << 14}, {128, 2 << 11}, {false, true}, {false, true}});
+// // Params are:
+// // - nEvent
+// // - nEdge
+// // - constant-width-bins
+// // - sparse with data
+// BENCHMARK(BM_histogram)
+//     ->RangeMultiplier(2)
+//     ->Ranges({{64, 2 << 14}, {128, 2 << 11}, {false, true}, {false, true}});
+
+// BENCHMARK(BM_histogram_log)
+//     ->RangeMultiplier(2)
+//     ->Ranges({{64, 2 << 14}, {128, 2 << 9}, {false, true}, {false, true}});
 
 BENCHMARK(BM_histogram_log)
     ->RangeMultiplier(2)
-    ->Ranges({{64, 2 << 14}, {128, 2 << 9}, {false, true}, {false, true}});
+    ->Ranges({{16384, 32768}, {128, 1024}, {false, true}, {false, true}});
+
 
 BENCHMARK_MAIN();
