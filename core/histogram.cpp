@@ -15,7 +15,8 @@ namespace scipp::core {
 
 static constexpr auto make_histogram = [](auto &data, const auto &events,
                                           const auto &edges) {
-  if (scipp::numeric::is_linspace(edges)) {
+  is_lin = scipp::numeric::is_linspace(edges);
+  if (is_lin.first) {
     // std::cout << "LINSPACE = true" << std::endl;
     // Special implementation for linear bins. Gives a 1x to 20x speedup
     // for few and many events per histogram, respectively.

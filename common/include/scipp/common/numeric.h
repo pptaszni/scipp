@@ -24,12 +24,27 @@ template <class Range> bool is_linspace(const Range &range) {
   constexpr int32_t ulp = 4;
   const T epsilon =
       std::numeric_limits<T>::epsilon() * (range.front() + range.back()) * ulp;
+  T min_step = std::numeric_limits<T>::max();
 
-  return std::adjacent_find(range.begin(), range.end(),
-                            [epsilon, delta](const auto &a, const auto &b) {
-                              return std::abs(std::abs(b - a) - delta) >
-                                     epsilon;
-                            }) == range.end();
+  auto it_minus_one = range.begin();
+  bool is_lin = true;
+  for (auto it = ++range.begin(); it != range.end(); ++it) {
+    // if the current index is needed:
+    // auto i = std::distance(v.begin(), it);
+    auto step = std::abs(*it - *it_minus_one);
+    if (std::abs(step - delta) > epsilon)
+      is_lin = true;
+    min_step = std::min(min_step, step);
+
+  }
+
+  return std::pair<bool, T>(is_lin, min_step);
+
+  // return std::adjacent_find(range.begin(), range.end(),
+  //                           [epsilon, delta](const auto &a, const auto &b) {
+  //                             return std::abs(std::abs(b - a) - delta) >
+  //                                    epsilon;
+  //                           }) == range.end();
 }
 
 /// Compute the ratio of a geometric sequence of numbers
