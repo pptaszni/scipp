@@ -9,15 +9,12 @@
 #include "scipp/core/transform_subspan.h"
 
 #include "dataset_operations_common.h"
-#include <iostream>
 
 namespace scipp::core {
 
 static constexpr auto make_histogram = [](auto &data, const auto &events,
                                           const auto &edges) {
-  is_lin = scipp::numeric::is_linspace(edges);
-  if (is_lin.first) {
-    // std::cout << "LINSPACE = true" << std::endl;
+  if (scipp::numeric::is_linspace(edges)) {
     // Special implementation for linear bins. Gives a 1x to 20x speedup
     // for few and many events per histogram, respectively.
     const auto [offset, nbin, scale] = linear_edge_params(edges);
@@ -26,87 +23,60 @@ static constexpr auto make_histogram = [](auto &data, const auto &events,
       if (bin >= 0.0 && bin < nbin)
         ++data.value[static_cast<scipp::index>(bin)];
     }
-  } else {
-    // const std::vector<double> new_edges;
-    // new_edges.reserve(5000);
-    const int new_size = 5000;
-    std::vector<scipp::index> bin_number(new_size, 0);
-    // bin_number.reserve(new_size);
-    std::vector<bool> contains_edge(new_size, false);
-    // contains_edge.reserve(new_size);
-    const double front = edges.front();
-    const auto dx = static_cast<double>(new_size) / (edges.back() - edges.front());
-    // // std::cout << "dx is " << dx << "," << edges.back() << "," << edges.front() << std::endl;
-    // for (scipp::index i=0; i < new_size; i++)
-    //   contains_edge[i] = false;
-    
-    // std::generate(new_edges.begin(), new_edges.end(),
-    //             [n = edges.front()]() mutable { n += dx ; return n; });
-    // auto it = new_edges.begin();
-    scipp::index current = 0;
-    for (scipp::index i=1; i < edges.size(); i++) {
-      const scipp::index ix = static_cast<scipp::index>((edges[i] - front) * dx);
-      for (scipp::index j=current; j < ix; j++)
-        bin_number[j] = i - 1;
-      current = ix;
-      contains_edge[ix] = true;
+  } else if (events.size() > static_cast<size_t>(2) * edges.size()) {
+    // Optimization for large number of events, by using a set of
+    // high-resolution linear bins to map from coordinate to original bin
+    // number.
+    auto front = edges.front();
+    using T = decltype(front);
+
+    // Find size of smallest bin
+    T min_step = std::numeric_limits<T>::max();
+    auto it_minus_one = edges.begin();
+    for (auto it = it_minus_one + 1; it != edges.end(); ++it) {
+      min_step = std::min(min_step, std::abs(*it - *it_minus_one));
+      it_minus_one++;
     }
-
-    // std::cout << "bin number " << std::endl;
-    // for (scipp::index i=0; i < 10; i++)
-    //   std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
-    // std::cout << "======= " << std::endl;
-    // for (scipp::index i=new_size-10; i < new_size; i++)
-    //   std::cout << i << "," << bin_number[i] << "," << contains_edge[i] << std::endl;
-
-
-    // const auto [offset, nbin, scale] = linear_edge_params(edges);
-    const scipp::index nbin = edges.size();
+    // Define a bin size that is approx 10 times smaller than the smallest bin
+    const int new_size =
+        static_cast<int>((edges.back() - edges.front()) * 10.0 / min_step);
+    std::vector<scipp::index> bin_number(new_size, 0);
+    std::vector<bool> contains_edge(new_size, false);
+    const auto dx = static_cast<T>(new_size) / (edges.back() - front);
+    // Create mapping from high resolution bins to original bin number.
+    // Also store whether the bin contains a bin edge, as it will need special
+    // handling.
+    scipp::index current = 0;
+    for (scipp::index i = 1; i < edges.size(); i++) {
+      const scipp::index ix =
+          static_cast<scipp::index>((edges[i] - front) * dx);
+      for (scipp::index j = current; j < ix; j++) {
+        bin_number[j] = i - 1;
+      }
+      current = ix;
+      if (ix < new_size)
+        contains_edge[ix] = true;
+    }
+    // Now run through events and perform histogramming
     for (const auto &e : events) {
       const scipp::index ib = static_cast<scipp::index>((e - front) * dx);
-      scipp::index bin = bin_number[ib];
-      // if (contains_edge[ib] && e < edges[bin])
-      //   bin--;
-
-      if (bin >= 0 && bin < nbin){
-        // if (contains_edge[ib])
-        //   std::cout << e << "," << ib << "," << bin << " This high res bin contains an edge " << edges[bin] << std::endl;
-          
+      if (ib >= 0 && ib < new_size) {
+        scipp::index bin = bin_number[ib];
         if (contains_edge[ib] && e < edges[bin]) {
-          // std::cout << "event " << e << "has bin number " << bin << " and bin index " << ib;
-          // std::cout << ". The event is below the edge, so we decrease bin" << std::endl;
           --bin;
         }
         ++data.value[bin];
       }
     }
-
-
-
+  } else {
+    // Use default implementation that searches through the bins
+    expect::histogram::sorted_edges(edges);
+    for (const auto &e : events) {
+      auto it = std::upper_bound(edges.begin(), edges.end(), e);
+      if (it != edges.end() && it != edges.begin())
+        ++data.value[--it - edges.begin()];
+    }
   }
-
-
-
-
-  // else if (scipp::numeric::is_logspace(edges)) {
-  //   // std::cout << "LOGSPACE = true" << std::endl;
-  //   // Special implementation for log bins.
-  //   const auto [offset, nbin, scale] = log_edge_params(edges);
-  //   for (const auto &e : events) {
-  //     const double bin = (e - offset) * scale;
-  //     // const double bin = (std::log(e) - offset) * scale;
-  //     if (bin >= 0.0 && bin < nbin)
-  //       ++data.value[static_cast<scipp::index>(bin)];
-  //   }
-  // } else {
-  //   // std::cout << "DEFAULT" << std::endl;
-  //   expect::histogram::sorted_edges(edges);
-  //   for (const auto &e : events) {
-  //     auto it = std::upper_bound(edges.begin(), edges.end(), e);
-  //     if (it != edges.end() && it != edges.begin())
-  //       ++data.value[--it - edges.begin()];
-  //   }
-  // }
   std::copy(data.value.begin(), data.value.end(), data.variance.begin());
 };
 
@@ -125,17 +95,53 @@ static constexpr auto make_histogram_from_weighted =
             data.variance[b] += e;
           }
         }
-      } else if (scipp::numeric::is_logspace(edges)) {
-        const auto [offset, nbin, scale] = log_edge_params(edges);
+      } else if (events.size() > static_cast<size_t>(2) * edges.size()) {
+        // Optimization for large number of events, by using a set of
+        // high-resolution linear bins to map from coordinate to original bin
+        // number.
+        auto front = edges.front();
+        using T = decltype(front);
+
+        // Find size of smallest bin
+        T min_step = std::numeric_limits<T>::max();
+        auto it_minus_one = edges.begin();
+        for (auto it = it_minus_one + 1; it != edges.end(); ++it) {
+          min_step = std::min(min_step, std::abs(*it - *it_minus_one));
+          it_minus_one++;
+        }
+        // Define a bin size that is approx 10 times smaller than the smallest
+        // bin
+        const int new_size =
+            static_cast<int>((edges.back() - edges.front()) * 10.0 / min_step);
+        std::vector<scipp::index> bin_number(new_size, 0);
+        std::vector<bool> contains_edge(new_size, false);
+        const auto dx = static_cast<T>(new_size) / (edges.back() - front);
+        // Create mapping from high resolution bins to original bin number.
+        // Also store whether the bin contains a bin edge, as it will need
+        // special handling.
+        scipp::index current = 0;
+        for (scipp::index i = 1; i < edges.size(); i++) {
+          const scipp::index ix =
+              static_cast<scipp::index>((edges[i] - front) * dx);
+          for (scipp::index j = current; j < ix; j++)
+            bin_number[j] = i - 1;
+          current = ix;
+          if (ix < new_size)
+            contains_edge[ix] = true;
+        }
+        // Now run through events and perform histogramming
         for (scipp::index i = 0; i < scipp::size(events); ++i) {
-          const auto x = std::log(events[i]);
-          const double bin = (x - offset) * scale;
-          if (bin >= 0.0 && bin < nbin) {
-            const auto b = static_cast<scipp::index>(bin);
+          const auto x = events[i];
+          const scipp::index ib = static_cast<scipp::index>((x - front) * dx);
+          if (ib >= 0 && ib < new_size) {
+            scipp::index bin = bin_number[ib];
+            if (contains_edge[ib] && x < edges[bin]) {
+              --bin;
+            }
             const auto w = weights.values[i];
             const auto e = weights.variances[i];
-            data.value[b] += w;
-            data.variance[b] += e;
+            data.value[bin] += w;
+            data.variance[bin] += e;
           }
         }
       } else {

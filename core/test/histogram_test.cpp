@@ -4,7 +4,6 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
-#include "scipp/common/numeric.h"
 #include "scipp/core/dataset.h"
 #include "scipp/core/histogram.h"
 
@@ -198,7 +197,6 @@ TEST(HistogramTest, log_bins) {
   const auto sparse = make_single_sparse();
   auto edges = makeVariable<double>(Dims{Dim::X}, Shape{4}, Values{1, 2, 4, 8});
   auto hist = core::histogram(sparse["sparse"], edges);
-  EXPECT_TRUE(numeric::is_logspace(edges.values<double>()));
   auto expected = make_expected(
       makeVariable<double>(Dims{Dim::X}, Shape{3}, units::Unit(units::counts),
                            Values{3, 4, 0}, Variances{3, 4, 0}),
@@ -221,7 +219,6 @@ TEST(HistogramTest, log_bins_with_data) {
   sparse.setData("sparse", data);
   auto edges = makeVariable<double>(
       Dims{Dim::Y}, Shape{6}, Values{1.0, 1.5, 2.25, 3.375, 5.0625, 7.59375});
-  EXPECT_TRUE(numeric::is_logspace(edges.values<double>()));
   std::vector<double> ref{0, 1, 1, 3, 2, 0, 0, 0, 4, 6, 2, 3, 0, 3, 1};
   auto expected =
       make_expected(makeVariable<double>(Dims{Dim::X, Dim::Y}, Shape{3, 5},
