@@ -159,7 +159,6 @@ class Slicer:
         button_values = [None] * (self.ndim - len(button_options)) + \
             button_options[::-1]
         for i, dim in enumerate(self.slider_x[self.name].keys()):
-            key = str(dim)
             # If this is a 3d projection, place slices half-way
             if len(button_options) == 3 and (not volume):
                 indx = (self.slider_nx[self.name][dim] - 1) // 2
@@ -217,7 +216,7 @@ class Slicer:
                         button_values[i] is not None)
                 # Add observer to show/hide buttons
                 self.showhide[dim].on_click(self.update_showhide)
-                self.members["widgets"]["buttons"][key] = self.showhide[dim]
+                self.members["widgets"]["buttons"][dim] = self.showhide[dim]
 
             # Add observer to buttons
             self.buttons[dim].on_msg(self.update_buttons)
@@ -233,9 +232,9 @@ class Slicer:
             self.vbox.append(widgets.HBox(row))
 
             # Construct members object
-            self.members["widgets"]["sliders"][key] = self.slider[dim]
-            self.members["widgets"]["togglebuttons"][key] = self.buttons[dim]
-            self.members["widgets"]["labels"][key] = self.lab[dim]
+            self.members["widgets"]["sliders"][dim] = self.slider[dim]
+            self.members["widgets"]["togglebuttons"][dim] = self.buttons[dim]
+            self.members["widgets"]["labels"][dim] = self.lab[dim]
 
         if self.masks is not None:
             self.masks_button = widgets.ToggleButton(
@@ -262,7 +261,11 @@ class Slicer:
         Get dimensions and label (if present) from requested axis
         """
         ticks = None
-        if isinstance(axis, Dim):
+        if axis in data_array.labels.keys():
+            dim = data_array.labels[axis].dims[-1]
+            lab = axis
+            var = data_array.labels[lab]
+        else:
             dim = axis
             lab = None
             make_fake_coord = False
@@ -292,17 +295,6 @@ class Slicer:
                 var = Variable([dim], **args)
             else:
                 var = data_array.coords[dim]
-        elif isinstance(axis, str):
-            # By convention, the last dim of the labels is the inner dimension,
-            # but note that for now two-dimensional labels are not supported in
-            # the plotting.
-            dim = data_array.labels[axis].dims[-1]
-            lab = axis
-            var = data_array.labels[lab]
-        else:
-            raise RuntimeError("Unsupported axis found in 'axes': {}. This "
-                               "must be either a Scipp dimension "
-                               "or a string.".format(axis))
         return dim, lab, var, ticks
 
     def get_custom_ticks(self, ax, dim, xy="x"):
