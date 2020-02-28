@@ -265,12 +265,11 @@ class InstrumentView:
         self.pcl = self.p3.Points(geometry=self.geometry,
                                   material=self.material)
         # Add the red green blue axes helper
-        self.axes_helper = self.p3.AxesHelper(100)
+        self.axes_helper = self.p3.AxesHelper(self.camera_pos * 50.0)
 
         # Create the threejs scene with ambient light and camera
-        self.camera = self.p3.PerspectiveCamera(position=[self.camera_pos] * 3,
-                                                aspect=config.plot.width /
-                                                config.plot.height)
+        # Note: use the 'aspect' kwarg to set the camera aspect ratio if != 1
+        self.camera = self.p3.PerspectiveCamera(position=[self.camera_pos] * 3)
         self.key_light = self.p3.DirectionalLight(position=[0, 10, 10])
         self.ambient_light = self.p3.AmbientLight()
         self.scene = self.p3.Scene(children=[
@@ -283,7 +282,7 @@ class InstrumentView:
         self.renderer = self.p3.Renderer(camera=self.camera,
                                          scene=self.scene,
                                          controls=[self.controller],
-                                         width=config.plot.width,
+                                         width=config.plot.height,
                                          height=config.plot.height)
         self.box = self.widgets.VBox(
             [self.widgets.HBox([self.renderer, self.cbar_image]), self.vbox])
@@ -343,11 +342,11 @@ class InstrumentView:
 
     def update_colorbar(self):
         height_inches = config.plot.height / config.plot.dpi
-        fig = self.mpl_figure.Figure(figsize=(height_inches * 0.2,
+        fig = self.mpl_figure.Figure(figsize=(height_inches * 0.17,
                                               height_inches),
                                      dpi=config.plot.dpi)
         canvas = self.mpl_backend_agg.FigureCanvasAgg(fig)
-        ax = fig.add_axes([0.05, 0.02, 0.25, 0.96])
+        ax = fig.add_axes([0.05, 0.02, 0.2, 0.96])
         cb1 = self.mpl.colorbar.ColorbarBase(
             ax, cmap=self.cmap[self.key], norm=self.params[self.key]["norm"])
         cb1.set_label(
