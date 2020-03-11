@@ -1,0 +1,6 @@
+name: mini-scipp
+channels:
+  - conda-forge
+  - scipp
+dependencies:
+  - scipp

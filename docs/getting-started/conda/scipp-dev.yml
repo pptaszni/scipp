@@ -1,0 +1,6 @@
+name: scipp-dev
+channels:
+  - conda-forge
+  - scipp/label/dev
+dependencies:
+  - scipp

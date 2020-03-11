@@ -1,0 +1,12 @@
+name: scipp-mantid
+channels:
+  - conda-forge
+  - mantid/label/nightly
+  - mantid
+  - scipp
+dependencies:
+  - scipp
+  - mantid-framework
+  - ipyvolume
+  - ipyevents
+  - python=3.6
