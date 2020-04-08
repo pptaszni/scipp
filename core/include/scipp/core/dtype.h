@@ -8,6 +8,8 @@
 #include <Eigen/Dense>
 #include <boost/container/small_vector.hpp>
 
+#include "scipp/common/span.h"
+
 namespace scipp::python {
 class PyObject;
 }
@@ -72,6 +74,16 @@ template <> constexpr DType dtype<scipp::python::PyObject> = DType::PyObject;
 bool isInt(DType tp);
 
 DType event_dtype(const DType type);
+
+template <class T> constexpr bool canHaveVariances() noexcept {
+  using U = std::remove_const_t<T>;
+  return std::is_same_v<U, double> || std::is_same_v<U, float> ||
+         std::is_same_v<U, sparse_container<double>> ||
+         std::is_same_v<U, sparse_container<float>> ||
+         std::is_same_v<U, span<const double>> ||
+         std::is_same_v<U, span<const float>> ||
+         std::is_same_v<U, span<double>> || std::is_same_v<U, span<float>>;
+}
 
 } // namespace scipp::core
 
