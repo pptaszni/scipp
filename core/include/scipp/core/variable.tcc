@@ -5,8 +5,8 @@
 
 #include "scipp/core/apply.h"
 #include "scipp/core/dimensions.h"
-#include "scipp/core/variable.h"
 #include "scipp/core/element_array_view.h"
+#include "scipp/core/variable.h"
 #include "scipp/units/unit.h"
 #include <numeric>
 #include <optional>
@@ -721,15 +721,16 @@ template <class T> ElementArrayView<T> VariableView::castVariances() const {
       dims());
 }
 
-namespace detail {
+namespace {
 template <class T>
 Variable from_dimensions_and_unit(const Dimensions &dms, const units::Unit &u) {
   auto volume = dms.volume();
   if constexpr (is_sparse_container<T>::value)
-    return Variable(u, dms, element_array<T>(volume));
+    return Variable(u, dms, detail::element_array<T>(volume));
   else
-    return Variable(u, dms,
-                    element_array<T>(volume, detail::default_init<T>::value()));
+    return Variable(
+        u, dms,
+        detail::element_array<T>(volume, detail::default_init<T>::value()));
 }
 
 template <class T>
@@ -737,13 +738,15 @@ Variable from_dimensions_and_unit_with_variances(const Dimensions &dms,
                                                  const units::Unit &u) {
   auto volume = dms.volume();
   if constexpr (is_sparse_container<T>::value)
-    return Variable(u, dms, element_array<T>(volume), element_array<T>(volume));
+    return Variable(u, dms, detail::element_array<T>(volume),
+                    detail::element_array<T>(volume));
   else
-    return Variable(u, dms,
-                    element_array<T>(volume, detail::default_init<T>::value()),
-                    element_array<T>(volume, detail::default_init<T>::value()));
+    return Variable(
+        u, dms,
+        detail::element_array<T>(volume, detail::default_init<T>::value()),
+        detail::element_array<T>(volume, detail::default_init<T>::value()));
 }
-}
+} // namespace
 
 /// This function covers the cases of construction Variables from keyword
 /// argument. The Unit is completely arbitrary, the relations between Dims,
@@ -763,12 +766,12 @@ Variable Variable::create(const units::Unit &u, const Dimensions &d,
                           std::optional<detail::element_array<T>> &&var) {
   if (val && var) {
     if (val->size() < 0 && var->size() < 0)
-      return detail::from_dimensions_and_unit_with_variances<T>(d, u);
+      return from_dimensions_and_unit_with_variances<T>(d, u);
     else
       return Variable(u, d, std::move(*val), std::move(*var));
   }
   if (!val || val->size() < 0)
-    return detail::from_dimensions_and_unit<T>(d, u);
+    return from_dimensions_and_unit<T>(d, u);
   else
     return Variable(u, d, std::move(*val));
 }
@@ -811,11 +814,6 @@ using scipp::core::detail::element_array;
   template ElementArrayView<__VA_ARGS__> VariableView::cast<__VA_ARGS__>()     \
       const;                                                                   \
   template ElementArrayView<__VA_ARGS__>                                       \
-  VariableView::castVariances<__VA_ARGS__>() const;                            \
-  template Variable core::detail::from_dimensions_and_unit<__VA_ARGS__>(       \
-      const Dimensions &dms, const units::Unit &u);                            \
-  template Variable                                                            \
-  core::detail::from_dimensions_and_unit_with_variances<__VA_ARGS__>(          \
-      const Dimensions &dms, const units::Unit &u);
+  VariableView::castVariances<__VA_ARGS__>() const;
 
 } // namespace scipp::core
